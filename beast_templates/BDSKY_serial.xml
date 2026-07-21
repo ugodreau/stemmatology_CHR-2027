@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><beast beautitemplate='Standard' beautistatus='' namespace="beast.core:beast.evolution.alignment:beast.evolution.tree.coalescent:beast.core.util:beast.evolution.nuc:beast.evolution.operators:beast.evolution.sitemodel:beast.evolution.substitutionmodel:beast.base.evolution.alignment:beast.pkgmgmt:beast.base.core:beast.base.inference:beast.base.evolution.tree.coalescent:beast.pkgmgmt:beast.base.core:beast.base.inference.util:beast.evolution.nuc:beast.base.evolution.operator:beast.base.inference.operator:beast.base.evolution.sitemodel:beast.base.evolution.substitutionmodel:beast.base.evolution.likelihood" required="BEAST.base v2.7.8:BDSKY v1.5.1:MM v1.2.1" version="2.7">
+
+    <data
+id="dummyname"
+spec="Alignment"
+dataType="standard"
+name="alignment">
+    </data>
+
+    <map name="Uniform" >beast.base.inference.distribution.Uniform</map>
+
+    <map name="Exponential" >beast.base.inference.distribution.Exponential</map>
+
+    <map name="LogNormal" >beast.base.inference.distribution.LogNormalDistributionModel</map>
+
+    <map name="Normal" >beast.base.inference.distribution.Normal</map>
+
+    <map name="Beta" >beast.base.inference.distribution.Beta</map>
+
+    <map name="Gamma" >beast.base.inference.distribution.Gamma</map>
+
+    <map name="LaplaceDistribution" >beast.base.inference.distribution.LaplaceDistribution</map>
+
+    <map name="prior" >beast.base.inference.distribution.Prior</map>
+
+    <map name="InverseGamma" >beast.base.inference.distribution.InverseGamma</map>
+
+    <map name="OneOnX" >beast.base.inference.distribution.OneOnX</map>
+
+    <run id="mcmc" spec="MCMC" chainLength="10000000">
+        <state id="state" spec="State" storeEvery="5000">
+            <tree id="Tree.t:dummyname" spec="beast.base.evolution.tree.Tree" name="stateNode">
+                <trait id="dateTrait.t:dummyname" spec="beast.base.evolution.tree.TraitSet" traitname="date" value="ms_6|297=297,ms_24|487=487,ms_132|802=802,ms_149|821=821,ms_165|836=836,ms_178|852=852,ms_241|916=916,ms_267|942=942,ms_283|952=952">
+                    <taxa id="TaxonSet.dummyname" spec="TaxonSet">
+                        <alignment idref="dummyname"/>
+                    </taxa>
+                </trait>
+                <taxonset idref="TaxonSet.dummyname"/>
+            </tree>
+            <parameter id="clockRate.c:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
+            <parameter id="birthRateBDS.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="Infinity">2.0</parameter>
+            <parameter id="deathRateBDS.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="Infinity">0.5</parameter>
+            <parameter id="rhoBDS.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="1.0">0.8</parameter>
+            <parameter id="samplingRateBDS.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="Infinity">0.2</parameter>
+        </state>
+        <init id="RandomTree.t:dummyname" spec="RandomTree" estimate="false" initial="@Tree.t:dummyname" taxa="@dummyname">
+            <populationModel id="ConstantPopulation0.t:dummyname" spec="ConstantPopulation">
+                <parameter id="randomPopSize.t:dummyname" spec="parameter.RealParameter" name="popSize">1.0</parameter>
+            </populationModel>
+        </init>
+        <distribution id="posterior" spec="CompoundDistribution">
+            <distribution id="prior" spec="CompoundDistribution">
+                <distribution id="BirthDeathSkySerialBDSParam.t:dummyname" spec="bdsky.evolution.speciation.BirthDeathSkylineModel" birthRate="@birthRateBDS.t:dummyname" conditionOnRoot="true" deathRate="@deathRateBDS.t:dummyname" rho="@rhoBDS.t:dummyname" samplingRate="@samplingRateBDS.t:dummyname" tree="@Tree.t:dummyname"/>
+                <prior id="birthRatePriorSerialBDS.t:dummyname" name="distribution" x="@birthRateBDS.t:dummyname">
+                    <Uniform id="Uniform.4" name="distr" upper="100.0"/>
+                </prior>
+                <prior id="ClockPrior.c:dummyname" name="distribution" x="@clockRate.c:dummyname">
+                    <Uniform id="Uniform.0" name="distr" upper="Infinity"/>
+                </prior>
+                <prior id="deathRatePriorSerialBDS.t:dummyname" name="distribution" x="@deathRateBDS.t:dummyname">
+                    <Uniform id="Uniform.3" name="distr" upper="100.0"/>
+                </prior>
+                <prior id="rhoPriorSerialBDS.t:dummyname" name="distribution" x="@rhoBDS.t:dummyname">
+                    <Beta id="Beta.0" name="distr">
+                        <parameter id="RealParameter.3" spec="parameter.RealParameter" estimate="false" name="alpha">80.0</parameter>
+                        <parameter id="RealParameter.4" spec="parameter.RealParameter" estimate="false" name="beta">20.0</parameter>
+                    </Beta>
+                </prior>
+                <prior id="samplingRatePriorSerialBDS.t:dummyname" name="distribution" x="@samplingRateBDS.t:dummyname">
+                    <Uniform id="Uniform.5" name="distr" upper="100.0"/>
+                </prior>
+            </distribution>
+            <distribution id="likelihood" spec="CompoundDistribution" useThreads="true">
+                <distribution id="treeLikelihood.dummyname" spec="ThreadedTreeLikelihood" data="@dummyname" tree="@Tree.t:dummyname">
+                    <siteModel id="SiteModel.s:dummyname" spec="SiteModel">
+                        <parameter id="mutationRate.s:dummyname" spec="parameter.RealParameter" estimate="false" lower="0.0" name="mutationRate">1.0</parameter>
+                        <parameter id="gammaShape.s:dummyname" spec="parameter.RealParameter" estimate="false" lower="0.1" name="shape">1.0</parameter>
+                        <parameter id="proportionInvariant.s:dummyname" spec="parameter.RealParameter" estimate="false" lower="0.0" name="proportionInvariant" upper="1.0">0.0</parameter>
+                        <substModel id="LewisMK.s:dummyname" spec="morphmodels.evolution.substitutionmodel.LewisMK" stateNumber="4"/>
+                    </siteModel>
+                    <branchRateModel id="StrictClock.c:dummyname" spec="beast.base.evolution.branchratemodel.StrictClockModel" clock.rate="@clockRate.c:dummyname"/>
+                </distribution>
+            </distribution>
+        </distribution>
+        <operator id="StrictClockRateScaler.c:dummyname" spec="AdaptableOperatorSampler" weight="1.5">
+            <parameter idref="clockRate.c:dummyname"/>
+            <operator id="AVMNOperator.dummyname" spec="kernel.AdaptableVarianceMultivariateNormalOperator" allowNonsense="true" beta="0.05" burnin="400" initial="800" weight="0.1">
+                <transformations id="AVMNSumTransform.dummyname" spec="operator.kernel.Transform$LogConstrainedSumTransform"/>
+                <transformations id="AVMNLogTransform.dummyname" spec="operator.kernel.Transform$LogTransform">
+                    <f idref="clockRate.c:dummyname"/>
+                </transformations>
+                <transformations id="AVMNNoTransform.dummyname" spec="operator.kernel.Transform$NoTransform">
+                    <f idref="Tree.t:dummyname"/>
+                </transformations>
+            </operator>
+            <operator id="StrictClockRateScalerX.c:dummyname" spec="kernel.BactrianScaleOperator" parameter="@clockRate.c:dummyname" upper="10.0" weight="3.0"/>
+        </operator>
+        <operator id="strictClockUpDownOperator.c:dummyname" spec="AdaptableOperatorSampler" weight="1.5">
+            <parameter idref="clockRate.c:dummyname"/>
+            <tree idref="Tree.t:dummyname"/>
+            <operator idref="AVMNOperator.dummyname"/>
+            <operator id="strictClockUpDownOperatorX.c:dummyname" spec="operator.kernel.BactrianUpDownOperator" scaleFactor="0.75" weight="3.0">
+                <up idref="clockRate.c:dummyname"/>
+                <down idref="Tree.t:dummyname"/>
+            </operator>
+        </operator>
+        <operator id="BDSKY_Serial_bds_treeScaler.t:dummyname" spec="ScaleOperator" scaleFactor="0.5" tree="@Tree.t:dummyname" weight="3.0"/>
+        <operator id="BDSKY_Serial_bds_treeRootScaler.t:dummyname" spec="ScaleOperator" rootOnly="true" scaleFactor="0.5" tree="@Tree.t:dummyname" weight="3.0"/>
+        <operator id="BDSKY_Serial_bds_UniformOperator.t:dummyname" spec="Uniform" tree="@Tree.t:dummyname" weight="30.0"/>
+        <operator id="BDSKY_Serial_bds_SubtreeSlide.t:dummyname" spec="SubtreeSlide" tree="@Tree.t:dummyname" weight="15.0"/>
+        <operator id="BDSKY_Serial_bds_narrow.t:dummyname" spec="Exchange" tree="@Tree.t:dummyname" weight="15.0"/>
+        <operator id="BDSKY_Serial_bds_wide.t:dummyname" spec="Exchange" isNarrow="false" tree="@Tree.t:dummyname" weight="3.0"/>
+        <operator id="BDSKY_Serial_bds_WilsonBalding.t:dummyname" spec="WilsonBalding" tree="@Tree.t:dummyname" weight="3.0"/>
+        <operator id="BDSKY_Serial_bds_deathRateScaler.t:dummyname" spec="ScaleOperator" parameter="@deathRateBDS.t:dummyname" weight="2.0"/>
+        <operator id="BDSKY_Serial_bds_rhoScaler.t:dummyname" spec="ScaleOperator" parameter="@rhoBDS.t:dummyname" weight="1.0"/>
+        <operator id="BDSKY_Serial_bds_birthRateScaler.t:dummyname" spec="ScaleOperator" parameter="@birthRateBDS.t:dummyname" weight="10.0"/>
+        <operator id="BDSKY_Serial_bds_samplingRateScaler.t:dummyname" spec="ScaleOperator" parameter="@samplingRateBDS.t:dummyname" weight="10.0"/>
+        <operator id="BDSKY_Serial_bds_updownBD.t:dummyname" spec="operator.UpDownOperator" scaleFactor="0.75" weight="2.0">
+            <up idref="birthRateBDS.t:dummyname"/>
+            <down idref="deathRateBDS.t:dummyname"/>
+        </operator>
+        <logger id="tracelog" spec="Logger" fileName="$(filebase).log" logEvery="1000" model="@posterior" sanitiseHeaders="true" sort="smart">
+            <log idref="posterior"/>
+            <log idref="likelihood"/>
+            <log idref="prior"/>
+            <log idref="treeLikelihood.dummyname"/>
+            <log id="TreeHeight.t:dummyname" spec="beast.base.evolution.tree.TreeStatLogger" tree="@Tree.t:dummyname"/>
+            <log idref="clockRate.c:dummyname"/>
+            <log idref="BirthDeathSkySerialBDSParam.t:dummyname"/>
+            <log idref="birthRateBDS.t:dummyname"/>
+            <log idref="deathRateBDS.t:dummyname"/>
+            <log idref="rhoBDS.t:dummyname"/>
+            <log idref="samplingRateBDS.t:dummyname"/>
+        </logger>
+        <logger id="screenlog" spec="Logger" logEvery="1000">
+            <log idref="posterior"/>
+            <log idref="likelihood"/>
+            <log idref="prior"/>
+        </logger>
+        <logger id="treelog.t:dummyname" spec="Logger" fileName="$(filebase)-$(tree).trees" logEvery="1000" mode="tree">
+            <log id="TreeWithMetaDataLogger.t:dummyname" spec="beast.base.evolution.TreeWithMetaDataLogger" tree="@Tree.t:dummyname"/>
+        </logger>
+        <operatorschedule id="OperatorSchedule" spec="OperatorSchedule"/>
+    </run>
+
+</beast>

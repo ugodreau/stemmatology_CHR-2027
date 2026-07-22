@@ -227,7 +227,7 @@ def draw_tree(G, filename):
     os.system('dot -Tsvg graph.dot > {}.svg'.format(filename))
 
 def generate_tree_fixed_size(lda, mu, Ta,Ti, n):
-    g = u.generate_tree(lda, mu, Ta,Ti)
-    while u.living_nb(g) != n:
-        g = u.generate_tree(lda, mu, Ta, Ti)
+    g = generate_tree(lda, mu, Ta,Ti)
+    while living_nb(g) != n:
+        g = generate_tree(lda, mu, Ta, Ti)
     return g

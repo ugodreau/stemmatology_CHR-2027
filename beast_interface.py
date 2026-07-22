@@ -94,7 +94,3 @@ class BeastModel:
         ### .... 
         
         return file
-
-
-
-    

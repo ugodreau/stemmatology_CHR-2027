@@ -181,3 +181,16 @@ def get_variants_distributions(p_app, p_mod, p_inov, n_sites, tree_set, n_runs):
         Y_var_app = np.append(Y_var_app,np.std(y_app))
     
     return (X_l,Y_mean_l,Y_var_l), (X_app,Y_mean_app, Y_var_app)
+
+def exp_extrapol(X, Y, iw, f_length):
+    '''
+    Extrapolate a finite probability distribution with best fitting exponential tail
+    '''
+    X1,Y1 = list(X), list(Y)
+    xi = X[-iw:]
+    yi = np.log(Y[-iw:])
+    alpha, beta = np.polyfit(xi,yi,1)
+    for i in range(X[-1]+1, f_length+1):
+        X1.append(i)
+        Y1.append(np.exp(alpha*i+beta))
+    return np.array(X1), np.array(Y1)/sum(Y1)

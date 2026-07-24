@@ -1,0 +1,99 @@
+---
+title: "Stemmatological benchmark"
+author: "JB Camps"
+date: "2026-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("ape")
+library("phangorn")
+```
+
+
+# Benchmark
+
+Create the results matrix
+
+```{r}
+results = matrix(nrow = 100, 
+                 ncol = 4, 
+                 data = numeric(),
+                 dimnames = list(
+  paste("Tree_", 0:99),
+  c("NJ", "UNJ", "MP", "ML")
+))
+```
+
+And now iterate and score:
+
+```{r}
+for(i in 0:99){
+  attempt <- tryCatch({
+    # Load data and gt tree
+    ## load, clean, write, read each nexus file
+    raw <- readLines(paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""))
+    clean_raw <- gsub("ms\\_|[|]\\S*", "", raw)
+    tmp <- tempfile(fileext = ".nex")
+    writeLines(clean_raw, tmp)
+    data <- ape::read.nexus.data(tmp)
+    unlink(tmp)
+    data = phyDat(data, type = "USER", levels = 0:10, ambiguity=NA)
+    gt = ape::read.tree(file = paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""))
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
+    return(NULL)
+  })
+  
+  # --- 2. Skip to next iteration if loading failed ---
+  if (is.null(attempt)) {
+    next
+  }
+  # Perform analyses
+  dm <- dist.ml(data)
+  treeNJ <- NJ(dm)
+  treeUNJ <- UNJ(dm)
+  mm_start <- random.addition(data)
+# Applying the pratchet method for maximum parsimony
+# Default, fitch + SPR
+  mm_tree <- pratchet(data, start = mm_start, minit = 10, maxit = 10000, all = TRUE, trace = 0, method = "fitch", rearrangements = "SPR", perturbation = "ratchet") # "The "fitch" algorithm only works correct for binary trees"
+  #mm_tree <- acctran(mm_tree, data)
+# Eliminating too short branches, to integrate polytomies/multifurcations
+# we prune away internal edges of length tol (default = 1e-08), so our trees may contain multifurcations.
+  #mm_tree  <- di2multi(mm_tree)
+  
+  results[i+1, "NJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeNJ, nTip = TRUE), similarity = TRUE)
+  results[i+1, "UNJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeUNJ, nTip = TRUE), similarity = TRUE)
+  results[i+1, "MP"] <- mean(Quartet::QuartetDivergence(Quartet::QuartetStatus(mm_tree, cf=gt, nTip = TRUE), similarity = TRUE))# taking the mean. Other option: take a consensus tree
+
+}
+```
+
+
+Now plot:
+
+```{r}
+res = as.data.frame(results)
+library(ggplot2)
+ggplot(data = res) +
+geom_boxplot(aes(x = "NJ", y = NJ)) +
+geom_boxplot(aes(x = "UNJ", y = UNJ)) +
+geom_boxplot(aes(x = "MP", y = MP)) +
+xlab("Method") +
+ylab("Quartet similarity") +
+ggtitle("Unrooted trees similarity to GT")
+```
+
+```{r}
+results
+```
+
+
+
+
+

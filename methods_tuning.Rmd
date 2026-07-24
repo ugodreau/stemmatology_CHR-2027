@@ -1,0 +1,150 @@
+---
+title: "Stemmatological benchmark"
+author: "JB Camps"
+date: "2026-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("ape")
+library("phangorn")
+```
+
+
+
+# Loading
+
+```{r}
+library("ape")
+library("phangorn")
+```
+
+```{r}
+data = read.nexus.data("simulations_data/simulated_traditions_22_07/sequences_0.nex")
+names(data) = gsub("ms\\_|[|].*", "", names(data))
+```
+
+GT:
+```{r}
+# Need to define a standard trick to deal with internal nodes. Here, just added a subtree
+gt = ape::read.tree(text="(((170[state=True:length=3],188[state=True:length=4])27[state=False:length=1],69[state=True:length=3])8[state=False:length=1],((93[state=True:length=0],((237[state=True:length=0])114[state=True:length=1]))74[state=False:length=2],226[state=True:length=2])25[state=False:length=2],296[state=True:length=7])0[state=False];")
+plot(gt, "unrooted", main="GT Tree", show.node.label = TRUE)
+```
+
+# PCC
+
+```{r}
+library("stemmatology")
+
+df = matrix(ncol = 8, data = as.numeric(unlist(data)))
+
+res = PCC.Stemma(df, omissionsAsReadings = TRUE)
+```
+
+
+
+# Cladistics
+
+```{r}
+library("phangorn")
+data = phyDat(data, type = "USER", levels = 0:10, ambiguity=NA)
+```
+
+## Neighbour-joining
+
+Neighbour joining,
+```{r}
+dm <- dist.ml(data)
+tree <- NJ(dm)
+plot(tree, "unrooted", main="NJ unrooted tree")
+Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, tree), similarity = TRUE)
+results[,1] = Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, tree), similarity = TRUE)
+```
+```{r}
+tree <- UNJ(dm)
+plot(tree, "unrooted", main="UNJ unrooted tree")
+results[,2] = Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, tree), similarity = TRUE)
+```
+
+## Maximum parsimony
+
+```{r}
+mm_start <- random.addition(data)
+# Applying the pratchet method for maximum parsimony
+# Default, fitch + SPR
+mm_tree <- pratchet(data, start = mm_start, minit = 1000, maxit = 10000, all = TRUE, trace = 0, method = "fitch", rearrangements = "SPR", perturbation = "ratchet") # "The "fitch" algorithm only works correct for binary trees"
+# Alternative
+#mm_tree <- pratchet(data, start = mm_start, minit = 1000, maxit = 10000, all = TRUE, trace = 0, method = "sankoff", rearrangements = "SPR", perturbation = "ratchet")
+```
+
+```{r}
+mm_tree
+```
+
+```{r}
+parsimony(mm_tree, data)
+```
+
+```{r}
+# Determining branch length
+mm_tree <- acctran(mm_tree, data)
+# Eliminating too short branches, to integrate polytomies/multifurcations
+# we prune away internal edges of length tol (default = 1e-08), so our trees may contain multifurcations.
+mm_tree  <- di2multi(mm_tree)
+```
+
+```{r}
+# In case of several competing trees
+#plot(consensus(mm_tree), "unrooted", main="Unrooted consensus tree")
+#plotBS(mm_tree, type = "unrooted")
+#plotBS(mm_tree)
+plot(mm_tree, "unrooted", main="MP Unrooted tree")
+results[,3] = Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, mm_tree), similarity = TRUE)
+```
+
+## Maximum likelihood
+
+```{r}
+# test different models
+mt <- modelTest(data, model=c("JC", "F81", "K80", "HKY", "SYM", "GTR"), control = pml.control(trace = 0))
+mt
+```
+
+```{r}
+fit_mt <- pml_bb(mt, control = pml.control(trace = 0))
+#fitGTR <- pml_bb(data, model="GTR")
+```
+
+And now bootstrapping,
+
+```{r}
+bs <- bootstrap.pml(fit_mt, bs=100, optNni=TRUE, control = pml.control(trace = 0))
+```
+
+```{r}
+plotBS(midpoint(fit_mt$tree), p = .5, type="p", digits=2, main="Ultrafast bootstrap")
+plotBS(midpoint(fit_mt$tree), bs, p = 50, type="p", main="Standard bootstrap")
+#plotBS(midpoint(fit_mt$tree), bs, p = 50, type="p", digits=0, method = "TBE", main="Transfer bootstrap")
+```
+```{r}
+results[,4] = Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, fit_mt$tree), similarity = TRUE)
+```
+
+
+## Distance scoring
+
+### Topology only
+Quartet::QuartetStatus(tree1, tree2) or TreeDist::TripletDistance(tree1, tree2)
+
+### With branch lengths
+
+Kendall-Colijn (KC) Metric:What it does: Represents each rooted tree as a vector encoding the distance from the root to the Most Recent Common Ancestor (MRCA) of every pair of tips. A weight parameter $\lambda \in [0, 1]$ smoothly transitions the metric between pure topology ($\lambda = 0$) and topology weighted by branch length ($\lambda = 1$).Pros/Cons: Exceptional for rooted genealogies and phylodynamics.
+
+R Implementation: treespace::treeDist(tree1, tree2, lambda = 0.5) or TreeDist::KendallColijn(tree1, tree2).
+
+Billera-Holmes-Vogtmann (BHV) Geodesic Distance:What it does: Measures the shortest continuous path through continuous "tree space" accounting for topology shifts and edge lengths.
+R Implementation: distory::dist.multiPhylo(c(tree1, tree2)).

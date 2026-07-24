@@ -109,26 +109,43 @@ results[,3] = Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, mm_tree), si
 ## Maximum likelihood
 
 ```{r}
-# test different models
-mt <- modelTest(data, model=c("JC", "F81", "K80", "HKY", "SYM", "GTR"), control = pml.control(trace = 0))
-mt
+# test only models that account for morphological-like data and fit them. No need to benchmark all this
+init_tree = random.addition(data)
+init_tree = NJ(dist.ml(data))
+fit_mk <- pml(init_tree, data = data)
 ```
 
 ```{r}
-fit_mt <- pml_bb(mt, control = pml.control(trace = 0))
-#fitGTR <- pml_bb(data, model="GTR")
+fit_opt <- optim.pml(
+  fit_mk, 
+  optNni = TRUE,      # Optimize topology via NNI
+  optEdge = TRUE,     # Optimize branch lengths
+  optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+  control = pml.control(trace = 0)
+)
+
+fit_opt
 ```
 
 And now bootstrapping,
 
 ```{r}
-bs <- bootstrap.pml(fit_mt, bs=100, optNni=TRUE, control = pml.control(trace = 0))
-```
+# Bootstrap on the optimized Mk fit
+bs <- bootstrap.pml(
+  fit_opt, 
+  bs = 100, 
+  optNni = TRUE, 
+  multicore = TRUE, 
+  mc.cores = parallel::detectCores() - 1,
+  control = pml.control(trace = 0)
+)
 
-```{r}
-plotBS(midpoint(fit_mt$tree), p = .5, type="p", digits=2, main="Ultrafast bootstrap")
-plotBS(midpoint(fit_mt$tree), bs, p = 50, type="p", main="Standard bootstrap")
-#plotBS(midpoint(fit_mt$tree), bs, p = 50, type="p", digits=0, method = "TBE", main="Transfer bootstrap")
+# Plot results
+plotBS(midpoint(fit_opt$tree), bs, p = 50, type = "p", main = "Mk Model Bootstrap")
+
+# Quartet status comparison against ground truth
+q_status <- Quartet::QuartetStatus(gt, fit_opt$tree, nTip = TRUE)
+results[, 4] <- Quartet::QuartetDivergence(q_status, similarity = TRUE)
 ```
 ```{r}
 results[,4] = Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, fit_mt$tree), similarity = TRUE)

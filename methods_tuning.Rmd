@@ -9,13 +9,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
-library("ape")
-library("phangorn")
-```
-
-
-
 # Loading
 
 ```{r}
@@ -150,6 +143,89 @@ results[, 4] <- Quartet::QuartetDivergence(q_status, similarity = TRUE)
 ```{r}
 results[,4] = Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, fit_mt$tree), similarity = TRUE)
 ```
+
+## Bayesian methods (with Beast2)
+
+```{r}
+#beastier::is_beast2_installed()
+pak::pak("nmatzke/BEASTmasteR")
+```
+
+Generate the Beast2 XML
+```{r}
+xml_file = "test.xml"
+source("generate_beast.R")
+generate_beast2_mk_xml(data, xml_file, chain_length = 10000, sample_every = 1000)
+```
+
+Now run:
+```{r}
+beast_bin <- "/home/jbcamps/Data/F/Stemmatologie/bayesian/beast/bin/beast"
+system2(command = beast_bin, args = c("-overwrite", xml_file))
+```
+
+
+
+
+```{r}
+library(babette)
+# Create the necessary fasta format
+write.phyDat(data, "tmp", format="fasta")#, type="USER")
+
+
+# 2. Configure the inference model
+# For non-DNA discrete data, specify the Lewis Mk site model
+inference_model <- create_inference_model(
+  site_model = create_jc69_site_model(gamma_site_model = create_gamma_site_model(gamma_cat_count = 4)), # Sort of Mk model
+  clock_model = create_strict_clock_model(),   # Strict vs Relaxed clock
+  tree_prior  = create_yule_tree_prior(),      # Birth-death or Yule prior
+  mcmc        = create_mcmc(chain_length = 10000, store_every = 1000)
+)
+
+# 3. Run BEAST2 directly from R
+out <- bbt_run_from_model("tmp",
+                          inference_model = inference_model
+)
+
+# 4. Process the outputs returned directly into R memory:
+# - Posterior trees (ape multiPhylo object)
+posterior_trees <- out$my_variants_trees
+
+# - MCMC parameter log (data.frame)
+mcmc_log <- out$estimates
+```
+
+
+```{r}
+# ----------------------------------------------------------------------
+# STEP 4: Extract Results & Post-Processing
+# ----------------------------------------------------------------------
+
+# 1. Check MCMC Convergence / ESS (aim for ESS > 200)
+clean_log <- tracerer::remove_burn_ins(out$estimates, burn_in_fraction = 0.1)
+ess_table <- tracerer::calc_esses(clean_log, sample_interval = 1000)
+print(ess_table)
+
+# 2. Extract Posterior Trees (ape multiPhylo object)
+# Note: babette labels the list element using the temp file's name
+tree_name <- names(out)[grep("_trees$", names(out))]
+posterior_trees <- out[[tree_name]]
+
+# 3. Compute 50% Majority-Rule Consensus Tree
+burnin <- floor(0.1 * length(posterior_trees))
+trees_after_burnin <- posterior_trees[(burnin + 1):length(posterior_trees)]
+consensus_tree <- phangorn::consensus(trees_after_burnin, p = 0.5)
+
+# 4. Plot Consensus Tree with Posterior Probabilities
+plotBS(
+  tree = consensus_tree, 
+  trees = trees_after_burnin, 
+  type = "phylogram", 
+  main = "Bayesian Consensus Tree (Lewis Mk Model)"
+)
+```
+
+
 
 
 ## Distance scoring

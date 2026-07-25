@@ -1,0 +1,139 @@
+<beast beautitemplate="Standard" beautistatus="" namespace="beast.core:beast.evolution.alignment:beast.evolution.tree.coalescent:beast.core.util:beast.evolution.nuc:beast.evolution.operators:beast.evolution.sitemodel:beast.evolution.substitutionmodel:beast.base.evolution.alignment:beast.pkgmgmt:beast.base.core:beast.base.inference:beast.base.evolution.tree.coalescent:beast.pkgmgmt:beast.base.core:beast.base.inference.util:beast.evolution.nuc:beast.base.evolution.operator:beast.base.inference.operator:beast.base.evolution.sitemodel:beast.base.evolution.substitutionmodel:beast.base.evolution.likelihood" required="BEAST.base v2.7.8:SA v2.1.1:MM v1.2.1" version="2.7">
+
+    <data id="sequence_15" spec="Alignment" dataType="standard" name="alignment">
+    <sequence id="seq_ms_152" spec="Sequence" taxon="ms_152" totalcount="5" value="0000000000011101100000000011000001000000010200011000001020101002200000100000001030111000000000100000011001001100001210011000000001000000000100020100000003000000000201000000101101000000000001102000000000110020010100200000100120120110000003003001110000000000000000010110000000000000100010001002120001001001020110010100100200000103001000010000012010110010100001111010000000010000112001100100100101011000120000100100200100020000111000000020100120000010010011001000000010210000000211001200100200013010100201000201200010110011000000100100001000000002000000000000100002102010000200010101000001010010000200102000200000000000010110110011000002000000000010000101030030000000011002000100001001001000000101000110000002010102000020100020000030101201000001000010002001020003200001002100000110000010002100002000011220010103101001000021100100000001000010000010011101000100021100010100040010020000000101000101100000000"/><sequence id="seq_ms_157" spec="Sequence" taxon="ms_157" totalcount="5" value="0000000000000000000000000000000000000000100000001000000000010001000000000000000000000000001000000100000000000000000000000000000010000010000000000000000000000000000000000000000000000000000001000000000000000001000000000100101000000000000000000000000010000000000100000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000001010000000000000001101000000000000001000000000000000000000000100000000000000000000000010000000000000100000000000000000000000000000000000001000000100000000000000000000000000000000000000000000000000000000000000000000000100010010000000000000000000000000000000000000000000000000000000000100000000000000100000000000000000010000000000000000000000000010000000000000000000010000000011000000000000000000000000000100000100000000000000000000000000000000000100000000000000000000000000000000000000000000010000000000000010000010000000000000000000010000000000"/><sequence id="seq_ms_202" spec="Sequence" taxon="ms_202" totalcount="5" value="0000012000020000011101000030101120000001100001001011001110200013012002000001000120100002002000000201020220122101110021100021001000002012100000010000001012000001002000000101202002101001012000100020000000100000002010101000121000000000000101101000000001010110311310002000010111120001012000110001000010000100000021010303010001100011111000200100023000201000000100001100010100100000002100001001010001000111110100231002110110000001000100001001001202000200030200000011000000010110000000100000000100100000000100102300001002001000011010010000100210122010010100000110200112021100001101000000101100112000020021000000000012001000101000000020020000000010010002121010042011100002220000100000010010100230002000200210001010000001001010001000101211020012002002000001100000030022001100000012010010000000000001011101000110311021110200001012001002000010110000002010000000010212200020022030030001001111010001110010000100000"/><sequence id="seq_ms_231" spec="Sequence" taxon="ms_231" totalcount="5" value="1010000000000200020000101100000000000100100020002000100000120001100000100000000001110010000000001010000001020100001100001000100001000011010010000011000101001002000100000010000211000010003001000201000000201020012000000000000000001001100002003100100000000000200200001000000000002210000000000100200001010001200010011211000100100000000110000002000020000101001011020000200010201111100200101100000001000000000000000000110010100000000011010000010010020000100100100000001000101000001100100000100001002000210121021100410101100001000000001000000000000000000000010100000000030000100110000120000010000111000100010110000000000001100000110200000102010000200000010100121320000000011001010001000001000100010010110000000000101000110000020001000002001000001001000000003100030000000010000000000010010101100000100000000011000000010000000101010000000000001010000011002000000010000000011011020100000000001011000100010420000"/><sequence id="seq_ms_251" spec="Sequence" taxon="ms_251" totalcount="5" value="0000001000000000000000000000000010000000000000000101000001000001001000000000000010000000000000000100000000000100000000000000000000000000000000000010000001000000000000000000000000000000101000000000000000000000001000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010010000000000000000100000000000100000000000000000000000000000000000001000000100000000000000000100000000100000000000000000000000100000000000000000000000000000000000000000000001000000010000000000000000000000001000000000000010000000000000200000001000000000000000000001000000000000000000000000000000000000000000000000000000110000000000000000000000000000001000000000000000000000010000000000000000000000000000000000000000000000200011000000000100000000000000000001010020000000000000000010000000020000000000020000000000000000100"/><sequence id="seq_ms_266" spec="Sequence" taxon="ms_266" totalcount="5" value="2101000001000020000000000000000000100010011021103000010030000002220200110110112000000100010111000000100100010110010301010110120010001000200001110000110202120022100020012200102002112001202010011110120010000110101300000001101211310000000011002011001130100100100100100000000001000001000120000021011110120010111000112002001010002010001011001013100101200000000000100100111000100000202020010002001012100201130101021001100001011100000010000010000000001120030000210010120101000011000000000120011112001100001000210012301000001110101120000000110001020110000011000002300000020001000000001000001101001000100000000001111020012010002001010000100000100101011101111002102010001101100100000020100110010020100010000000001100000020001031010100000120000100110111100103001110040012000000001001200010000000011000000011100010110001210101100010201011111100003110001010010000001100012001100020001010000012112001300010000100001"/><sequence id="seq_ms_290" spec="Sequence" taxon="ms_290" totalcount="5" value="0000001000000010000000000020000000000000100000000100000000010001000001000000000010000001000000020000000000000100000000000000010000000000000000000000000001000000001000000000001000000000000000000000011000000000000000000000110000100000000000000000000020001100000000000000001000000100000001000000000001000000000000000000000100000000000001000001000010000000000000000000000000000000001010200000000001000000010110000000100000000010000000000000000000000000000000000100010000010000000000000000000000000000000010000000000000000000000000000000000000000000000000001000000001000000000000020000000000000020000000000000000000000000100000000000001001000000000001002100000001000000000000000000000000000000001000000000000001000000000000000000100000001000000000000000000100010000010000000000100000100000000000000000000000010002000000000000000001000000000000000000000000000000100000000000000000000000000000000020000210000"/><sequence id="seq_ms_344" spec="Sequence" taxon="ms_344" totalcount="5" value="0000100110120110001010012000010000211000200110000100100001000100000111101001000030000001100000012000100010030200000000100000000110110110001100001010000002010110012010101000010000000100002101000001000121000011000201012110000000200000211001010022000010100001000001000001100000211222101000000011000021000000200100000000000000111002010210100001011000000000010000030001000001000000100000000011100000001000011001010010001000100020000000100100010001100001022000002010020000000200110000010011200100100000300021000000100000001000000001200011020100111001101000122000011000000000010000020012212000010000011010001000010101100100000000002100010010011000120020001100010200111011000110001012000000000011201000001001000000001012000100000022110000001010000103011002010001101101120000210100001001001000000012020011010000010030000010011001002000000100002110101100100000100011021030010000110020110000030100201000001331010"/><userDataType id="StandardData.0" spec="beast.base.evolution.datatype.StandardData" ambiguities="" nrOfStates="5"/></data>
+
+    <map name="Uniform">beast.base.inference.distribution.Uniform</map>
+
+    <map name="Exponential">beast.base.inference.distribution.Exponential</map>
+
+    <map name="LogNormal">beast.base.inference.distribution.LogNormalDistributionModel</map>
+
+    <map name="Normal">beast.base.inference.distribution.Normal</map>
+
+    <map name="Beta">beast.base.inference.distribution.Beta</map>
+
+    <map name="Gamma">beast.base.inference.distribution.Gamma</map>
+
+    <map name="LaplaceDistribution">beast.base.inference.distribution.LaplaceDistribution</map>
+
+    <map name="prior">beast.base.inference.distribution.Prior</map>
+
+    <map name="InverseGamma">beast.base.inference.distribution.InverseGamma</map>
+
+    <map name="OneOnX">beast.base.inference.distribution.OneOnX</map>
+
+    <run id="mcmc" spec="MCMC" chainLength="4000000">
+        <state id="state" spec="State" storeEvery="5000">
+            <tree id="Tree.t:sequence_15" spec="beast.base.evolution.tree.Tree" name="stateNode">
+                <trait id="dateTrait.t:sequence_15" spec="beast.base.evolution.tree.TraitSet" traitname="date" value="ms_152=194.483936109921,ms_157=196.0342190378271,ms_202=209.03663676369973,ms_231=215.5002917477079,ms_251=219.67134108440248,ms_266=223.90701583913886,ms_290=229.57455155828134,ms_344=237.76241223790595">
+                    <taxa id="TaxonSet.sequence_15" spec="TaxonSet">
+                        <alignment idref="sequence_15"/>
+                    </taxa>
+                </trait>
+                <taxonset idref="TaxonSet.sequence_15"/>
+            </tree>
+            <parameter id="clockRate.c:sequence_15" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
+            <parameter id="diversificationRateFBD.t:sequence_15" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
+            <parameter id="turnoverFBD.t:sequence_15" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="1.0">0.5</parameter>
+            <parameter id="samplingProportionFBD.t:sequence_15" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="1.0">0.5</parameter>
+            <parameter id="originFBD.t:sequence_15" spec="parameter.RealParameter" lower="0.0" name="stateNode">250.0</parameter>
+        </state>
+        <init id="RandomTree.t:sequence_15" spec="RandomTree" estimate="false" initial="@Tree.t:sequence_15" taxa="@sequence_15">
+            <populationModel id="ConstantPopulation0.t:sequence_15" spec="ConstantPopulation">
+                <parameter id="randomPopSize.t:sequence_15" spec="parameter.RealParameter" name="popSize">1.0</parameter>
+            </populationModel>
+        </init>
+        <distribution id="posterior" spec="CompoundDistribution">
+            <distribution id="prior" spec="CompoundDistribution">
+                <distribution id="FBD.t:sequence_15" spec="sa.evolution.speciation.SABirthDeathModel" conditionOnRhoSampling="true" diversificationRate="@diversificationRateFBD.t:sequence_15" origin="@originFBD.t:sequence_15" samplingProportion="@samplingProportionFBD.t:sequence_15" tree="@Tree.t:sequence_15" turnover="@turnoverFBD.t:sequence_15">
+                    <parameter id="rFBD.t:sequence_15" spec="parameter.RealParameter" lower="0.0" name="removalProbability" upper="1.0">0.0</parameter>
+                    <parameter id="rhoFBD.t:sequence_15" spec="parameter.RealParameter" estimate="false" lower="0.0" name="rho" upper="1.0">1.0</parameter>
+                </distribution>
+                <prior id="ClockPrior.c:sequence_15" name="distribution" x="@clockRate.c:sequence_15">
+                    <Uniform id="Uniform.0" name="distr" upper="Infinity"/>
+                </prior>
+                <prior id="diversificationRatePriorFBD.t:sequence_15" name="distribution" x="@diversificationRateFBD.t:sequence_15">
+                    <Uniform id="Uniform.4" name="distr" upper="Infinity"/>
+                </prior>
+                <prior id="originPriorFBD.t:sequence_15" name="distribution" x="@originFBD.t:sequence_15">
+                    <Uniform id="Uniform.3" name="distr" upper="Infinity"/>
+                </prior>
+                <prior id="samplingProportionPriorFBD.t:sequence_15" name="distribution" x="@samplingProportionFBD.t:sequence_15">
+                    <Uniform id="Uniform.6" name="distr"/>
+                </prior>
+                <prior id="turnoverPriorFBD.t:sequence_15" name="distribution" x="@turnoverFBD.t:sequence_15">
+                    <Uniform id="Uniform.5" name="distr"/>
+                </prior>
+            </distribution>
+            <distribution id="likelihood" spec="CompoundDistribution" useThreads="true">
+                <distribution id="treeLikelihood.sequence_15" spec="ThreadedTreeLikelihood" data="@sequence_15" tree="@Tree.t:sequence_15">
+                    <siteModel id="SiteModel.s:sequence_15" spec="SiteModel">
+                        <parameter id="mutationRate.s:sequence_15" spec="parameter.RealParameter" estimate="false" lower="0.0" name="mutationRate">1.0</parameter>
+                        <parameter id="gammaShape.s:sequence_15" spec="parameter.RealParameter" estimate="false" lower="0.1" name="shape">1.0</parameter>
+                        <parameter id="proportionInvariant.s:sequence_15" spec="parameter.RealParameter" estimate="false" lower="0.0" name="proportionInvariant" upper="1.0">0.0</parameter>
+                        <substModel id="LewisMK.s:sequence_15" spec="morphmodels.evolution.substitutionmodel.LewisMK" stateNumber="5"/>
+                    </siteModel>
+                    <branchRateModel id="StrictClock.c:sequence_15" spec="beast.base.evolution.branchratemodel.StrictClockModel" clock.rate="@clockRate.c:sequence_15"/>
+                </distribution>
+            </distribution>
+        </distribution>
+        <operator id="StrictClockRateScaler.c:sequence_15" spec="AdaptableOperatorSampler" weight="1.5">
+            <parameter idref="clockRate.c:sequence_15"/>
+            <operator id="AVMNOperator.sequence_15" spec="kernel.AdaptableVarianceMultivariateNormalOperator" allowNonsense="true" beta="0.05" burnin="400" initial="800" weight="0.1">
+                <transformations id="AVMNSumTransform.sequence_15" spec="operator.kernel.Transform$LogConstrainedSumTransform"/>
+                <transformations id="AVMNLogTransform.sequence_15" spec="operator.kernel.Transform$LogTransform">
+                    <f idref="clockRate.c:sequence_15"/>
+                </transformations>
+                <transformations id="AVMNNoTransform.sequence_15" spec="operator.kernel.Transform$NoTransform">
+                    <f idref="Tree.t:sequence_15"/>
+                </transformations>
+            </operator>
+            <operator id="StrictClockRateScalerX.c:sequence_15" spec="kernel.BactrianScaleOperator" parameter="@clockRate.c:sequence_15" upper="10.0" weight="3.0"/>
+        </operator>
+        <operator id="strictClockUpDownOperator.c:sequence_15" spec="AdaptableOperatorSampler" weight="1.5">
+            <parameter idref="clockRate.c:sequence_15"/>
+            <tree idref="Tree.t:sequence_15"/>
+            <operator idref="AVMNOperator.sequence_15"/>
+            <operator id="strictClockUpDownOperatorX.c:sequence_15" spec="operator.kernel.BactrianUpDownOperator" scaleFactor="0.75" weight="3.0">
+                <up idref="clockRate.c:sequence_15"/>
+                <down idref="Tree.t:sequence_15"/>
+            </operator>
+        </operator>
+        <operator id="originScalerFBD.t:sequence_15" spec="ScaleOperator" parameter="@originFBD.t:sequence_15" weight="3.0"/>
+        <operator id="divRateScalerFBD.t:sequence_15" spec="ScaleOperator" parameter="@diversificationRateFBD.t:sequence_15" weight="10.0"/>
+        <operator id="turnoverScalerFBD.t:sequence_15" spec="ScaleOperator" parameter="@turnoverFBD.t:sequence_15" weight="10.0"/>
+        <operator id="samplingPScalerFBD.t:sequence_15" spec="ScaleOperator" parameter="@samplingProportionFBD.t:sequence_15" weight="10.0"/>
+        <operator id="LeafToSAFBD.t:sequence_15" spec="sa.evolution.operators.LeafToSampledAncestorJump" tree="@Tree.t:sequence_15" weight="10.0"/>
+        <operator id="SAWilsonBaldingFBD.t:sequence_15" spec="sa.evolution.operators.SAWilsonBalding" tree="@Tree.t:sequence_15" weight="10.0"/>
+        <operator id="SAWideFBD.t:sequence_15" spec="sa.evolution.operators.SAExchange" isNarrow="false" tree="@Tree.t:sequence_15" weight="10.0"/>
+        <operator id="SANarrowFBD.t:sequence_15" spec="sa.evolution.operators.SAExchange" tree="@Tree.t:sequence_15" weight="10.0"/>
+        <operator id="SAUniformOperatorFBD.t:sequence_15" spec="sa.evolution.operators.SAUniform" tree="@Tree.t:sequence_15" weight="20.0"/>
+        <operator id="SATreeRootScalerFBD.t:sequence_15" spec="sa.evolution.operators.SAScaleOperator" rootOnly="true" scaleFactor="0.95" tree="@Tree.t:sequence_15" weight="1.0"/>
+        <operator id="SATreeScalerFBD.t:sequence_15" spec="sa.evolution.operators.SAScaleOperator" scaleFactor="0.95" tree="@Tree.t:sequence_15" weight="3.0"/>
+        <logger id="tracelog" spec="Logger" fileName="$(filebase).log" logEvery="1000" model="@posterior" sanitiseHeaders="true" sort="smart">
+            <log idref="posterior"/>
+            <log idref="likelihood"/>
+            <log idref="prior"/>
+            <log idref="treeLikelihood.sequence_15"/>
+            <log id="TreeHeight.t:sequence_15" spec="beast.base.evolution.tree.TreeStatLogger" tree="@Tree.t:sequence_15"/>
+            <log idref="clockRate.c:sequence_15"/>
+            <log idref="FBD.t:sequence_15"/>
+            <log idref="diversificationRateFBD.t:sequence_15"/>
+            <log idref="turnoverFBD.t:sequence_15"/>
+            <log idref="samplingProportionFBD.t:sequence_15"/>
+            <log idref="originFBD.t:sequence_15"/>
+            <log id="SACountFBD.t:sequence_15" spec="sa.evolution.tree.SampledAncestorLogger" tree="@Tree.t:sequence_15"/>
+        </logger>
+        <logger id="screenlog" spec="Logger" logEvery="1000">
+            <log idref="posterior"/>
+            <log idref="likelihood"/>
+            <log idref="prior"/>
+        </logger>
+        <logger id="treelog.t:sequence_15" spec="Logger" fileName="$(filebase)-$(tree).trees" logEvery="1000" mode="tree">
+            <log id="TreeWithMetaDataLogger.t:sequence_15" spec="beast.base.evolution.TreeWithMetaDataLogger" tree="@Tree.t:sequence_15"/>
+        </logger>
+        <operatorschedule id="OperatorSchedule" spec="OperatorSchedule"/>
+    </run>
+
+</beast>

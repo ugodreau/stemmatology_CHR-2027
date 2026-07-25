@@ -7,7 +7,8 @@ import artificial_collations as ac
 
 ##### BEAST2 functions #######
 
-MODELS = {'bdsky':'BDSKY_serial.xml'}
+MODELS = {'bdsky':'BDSKY_serial.xml',
+    'fbd': 'FBD_serial.xml'}
 XPATH = {'substModel':"/beast/run[@id='mcmc']/distribution[@id='posterior']/distribution[@id ='likelihood']/distribution[@id = 'treeLikelihood.{name}']/siteModel[@id='SiteModel.s:{name}']/substModel[@id='LewisMK.s:{name}']",
     'mcmc': "/beast/run[@id='mcmc']",
     'dates': "run/state/tree/trait[@traitname='date']"
@@ -15,15 +16,23 @@ XPATH = {'substModel':"/beast/run[@id='mcmc']/distribution[@id='posterior']/dist
 
 class BeastModel:
     def __init__(self,
-        sw = {}, 
+        seqs = {}, 
         dates = {}, 
         seq_name = 'beast_sequence',
-        model = 'bdsky', 
+        model = 'bdsky',
         params = {}, 
         n_iter=10000):
 
+        sw = {}
+        for w,s in seqs.items():
+            sequence = []
+            for l in s.values():
+                for app in l.values():
+                    sequence.append(app)
+            sw[f'ms_{w}'] = ''.join(map(str,sequence))
+    
         self.sw = sw
-        self.dates = dates
+        self.dates = {f'ms_{n}':v for n,v in dates.items()}
         self.seq_name = seq_name
         self.model = model
         self.params = params
@@ -86,7 +95,6 @@ class BeastModel:
                 dates_str +=f'{w}={d},'
             dates_str += '{}={}'.format(*list(self.dates.items())[-1])
 
-            print(dates_str)
             self.set_attribute(file, 'dates','value', dates_str)
 
         ### set iteration number ###
@@ -161,7 +169,7 @@ def seq_to_nexus(sw, dates, name, max_val):
 
     return config_s
 
-def trad_to_nexus(st, seqs):
+def trad_to_nexus(st, seqs, loc_sizes, name):
     wits_seqs = {}
     dates = {}
     for w,s in seqs.items():
@@ -173,5 +181,27 @@ def trad_to_nexus(st, seqs):
         dates[f'ms_{w}'] = int(st.nodes[w]['birth_time'])
 
     max_val = max([max(l.values()) for l in loc_sizes.values() if l != {}])
-    nexus_str =seq_to_nexus(wits_seqs, dates, 'test', max_val)
+    nexus_str =seq_to_nexus(wits_seqs, dates, name, max_val)
     return nexus_str
+
+def dendropy_to_networkx(tree):
+    G = nx.DiGraph()
+    
+    for i, node in enumerate(tree.preorder_node_iter()):
+        if node.taxon:
+            node.label = node.taxon.label
+        elif not node.label:
+            node.label = f"internal_{i}"
+
+    for node in tree.preorder_node_iter():
+        if node.parent_node is not None:
+            G.add_edge(node.parent_node.label, node.label, weight=node.edge.length)
+
+    to_delete = []
+    for p,c in G.edges():
+        G.edges[(p,c)]['label'] = f'{G.edges[(p,c)]['weight']:.0f}'
+        if G.edges[(p,c)]['weight'] == 0.0:
+            G.nodes[p]['label'] = c
+            to_delete.append(c)
+    G.remove_nodes_from(to_delete)
+    return G

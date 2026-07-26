@@ -10,8 +10,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+## Put your beast2 bin path here
+beast_bin_folder = "/home/jbcamps/Data/F/Stemmatologie/bayesian/beast/bin/"
+
 library("ape")
 library("phangorn")
+source("convert_gt_internal_to_zero.R")
+source("fbd.R")
+#source("generate_beast.R")
 ```
 
 
@@ -20,30 +26,46 @@ library("phangorn")
 Create the results matrix
 
 ```{r}
-results = matrix(nrow = 100, 
+results_quartet = matrix(nrow = 100, 
                  ncol = 5, 
                  data = numeric(),
                  dimnames = list(
   paste("Tree_", 0:99),
-  c("NJ_distml", "NJ_disthamming", "UNJ", "MP", "ML")
+  c("NJ", "UNJ", "MP", "ML", "FBD")
+))
+results_grf = matrix(nrow = 100, 
+                 ncol = 5, 
+                 data = numeric(),
+                 dimnames = list(
+  paste("Tree_", 0:99),
+  c("NJ", "UNJ", "MP", "ML", "FBD")
 ))
 ```
 
 And now iterate and score:
 
-```{r}
+```{r, echo=FALSE}
 for(i in 0:99){
   attempt <- tryCatch({
     # Load data and gt tree
     ## load, clean, write, read each nexus file
-    raw <- readLines(paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""))
+    ### Data first
+    raw <- readLines(paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), warn = FALSE)
+    # create the dates vector for bayesian methods
+    matches <- regmatches(raw, regexec("ms_([0-9]+)\\|([0-9]+)", raw))
+    matched_matrix <- do.call(rbind, lapply(matches, function(x) if(length(x) == 3) x[2:3] else NULL))
+    # Create a lookup vector: c("305" = 246, "108" = 120, ...)
+    dates_vector <- setNames(as.numeric(matched_matrix[,2]), matched_matrix[,1])
+    # and now clean the names to avoid issues with nexus reading
     clean_raw <- gsub("ms\\_|[|]\\S*", "", raw)
     tmp <- tempfile(fileext = ".nex")
     writeLines(clean_raw, tmp)
     data <- ape::read.nexus.data(tmp)
     unlink(tmp)
     data = phyDat(data, type = "USER", levels = 0:10, ambiguity=NA)
-    gt = ape::read.tree(file = paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""))
+    ### Then GT, without forgetting the 0-length edge conversion
+    gt_raw = readLines(con = paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""), warn = FALSE)
+    gt <- convert_gt_internal_nodes(gt_raw)
   }, error = function(e) {
     # Print a warning showing which file failed
     message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
@@ -55,62 +77,89 @@ for(i in 0:99){
     next
   }
   # Perform analyses
-  dm <- dist.ml(data)
-  treeNJ <- NJ(dm)
-  treeNJhamm <- NJ(dist.hamming(data))
+  #dm <- dist.ml(data)
+  #treeNJ <- NJ(dm)
+  dm <- dist.hamming(data)
+  treeNJ<- NJ(dm)
   treeUNJ <- UNJ(dm)
   mm_start <- treeNJ#random.addition(data)
-# Applying the pratchet method for maximum parsimony
-# Default, fitch + SPR
-  mm_tree <- pratchet(data, start = mm_start, minit = 10, maxit = 10000, all = TRUE, trace = 0, method = "fitch", rearrangements = "SPR", perturbation = "ratchet") # "The "fitch" algorithm only works correct for binary trees"
-  #mm_tree <- acctran(mm_tree, data)
-# Eliminating too short branches, to integrate polytomies/multifurcations
-# we prune away internal edges of length tol (default = 1e-08), so our trees may contain multifurcations.
-  #mm_tree  <- di2multi(mm_tree)
+  # Applying the pratchet method for maximum parsimony
+  # Default, fitch + SPR
+  mm_tree <- pratchet(data, start = mm_start, minit = 10, maxit = 10000, all = TRUE, trace = 0, method = "fitch", rearrangements = "SPR", perturbation = "ratchet")
   ## Maximum likelihood
   fit_mk <- pml(treeNJ, data = data)
   fit_opt <- optim.pml(
-  fit_mk, 
-  optNni = TRUE,      # Optimize topology via NNI
-  optEdge = TRUE,     # Optimize branch lengths
-  #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
-  control = pml.control(trace = 0)
-)
+    fit_mk, 
+    optNni = TRUE,      # Optimize topology via NNI
+    optEdge = TRUE,     # Optimize branch lengths
+    #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+    control = pml.control(trace = 0)
+  )
+  # And now bayesian FBD-based analysis
+  mcc_tree = fbd(data,
+                 dates_vector,
+                 template_file =
+                   "beast_templates/FBD_NJinit_serial.xml",
+                 out = 
+                   paste("rbeast_out/", "sequences_", i, sep=""),
+                 chain_length=1000000, 
+                 bin_folder = beast_bin_folder)
   
-  results[i+1, "NJ_distml"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeNJ, nTip = TRUE), similarity = TRUE)
-    results[i+1, "NJ_disthamming"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeNJhamm, nTip = TRUE), similarity = TRUE)
-  results[i+1, "UNJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeUNJ, nTip = TRUE), similarity = TRUE)
-  results[i+1, "MP"] <- mean(Quartet::QuartetDivergence(Quartet::QuartetStatus(mm_tree, cf=gt, nTip = TRUE), similarity = TRUE))# taking the mean. Other option: take a consensus tree
-  results[i+1, "ML"] <- mean(Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt$tree, cf=gt, nTip = TRUE), similarity = TRUE))
-
+  results_quartet[i+1, "NJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeNJ, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "UNJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeUNJ, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "MP"] <- mean(Quartet::QuartetDivergence(Quartet::QuartetStatus(mm_tree, cf=gt, nTip = TRUE), similarity = FALSE))# taking the mean. Other option: take a consensus tree
+  results_quartet[i+1, "ML"] <- mean(Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt$tree, cf=gt, nTip = TRUE), similarity = FALSE))
+  
+  results_grf[i+1, "NJ"] <- TreeDist::TreeDistance(gt, treeNJ)
+  results_grf[i+1, "UNJ"] <- TreeDist::TreeDistance(gt, treeUNJ)
+  results_grf[i+1, "MP"] <- mean(TreeDist::TreeDistance(mm_tree, gt))# taking the mean. Other option: take a consensus tree
+  results_grf[i+1, "ML"] <- mean(TreeDist::TreeDistance(fit_opt$tree, gt))
+  
+  if(!is.null(mcc_tree)){
+    results_quartet[i+1, "FBD"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, mcc_tree, nTip = TRUE), similarity = FALSE)
+  results_grf[i+1, "FBD"] <- TreeDist::TreeDistance(gt, mcc_tree)
+  }
 }
 ```
 
 
+# Quartet distance
+
 Now plot:
 
 ```{r}
-res = as.data.frame(results)
+library(ggplot2)
+res = as.data.frame(results_quartet)
+ggplot(data = res) +
+  geom_boxplot(aes(x = "NJ (hamming)", y = NJ)) +
+  geom_boxplot(aes(x = "UNJ", y = UNJ)) +
+  geom_boxplot(aes(x = "MP", y = MP)) +
+  geom_boxplot(aes(x = "ML", y = ML)) +
+  geom_boxplot(aes(x = "FBD", y = FBD)) +
+  xlab("Method") +
+  ylab("Quartet distance") +
+  ggtitle("Unrooted trees quartet distance to GT", subtitle =  "(local agreements/families)")
 ```
 
+```{r}
+results_quartet
+```
+
+# Information-based Generalised Robinson-Foulds distance
 
 ```{r}
+res = as.data.frame(results_grf)
 library(ggplot2)
 ggplot(data = res) +
-geom_boxplot(aes(x = "NJ (distml)", y = NJ_distml)) +
-  geom_boxplot(aes(x = "NJ (hamming)", y = NJ_disthamming)) +
-geom_boxplot(aes(x = "UNJ", y = UNJ)) +
-geom_boxplot(aes(x = "MP", y = MP)) +
-geom_boxplot(aes(x = "ML", y = ML)) +
-xlab("Method") +
-ylab("Quartet similarity") +
-ggtitle("Unrooted trees similarity to GT")
+  geom_boxplot(aes(x = "NJ (hamming)", y = NJ)) +
+  geom_boxplot(aes(x = "UNJ", y = UNJ)) +
+  geom_boxplot(aes(x = "MP", y = MP)) +
+  geom_boxplot(aes(x = "ML", y = ML)) +
+  geom_boxplot(aes(x = "FBD", y = FBD)) +
+  xlab("Method") +
+  ylab("gRF dissimilarity") +
+  ggtitle("Unrooted trees gRF distance to GT", sub="(Topology)")
 ```
-
-```{r}
-results
-```
-
 
 
 

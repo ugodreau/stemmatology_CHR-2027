@@ -1,0 +1,25 @@
+<itsabeastystatewerein version='2.0' sample='864999'>
+<statenode id='Tree.t:dummyname'>(1:287.26257569773844,((((2:142.8205938888226,((0:141.3879548435418,4:97.38795484354179)9:11.766910890926255,5:108.15486573446805)8:25.665728154354554)10:23.853082027736633,3:164.67367591655923)13:6.653754661605831,6:161.32743057816506)14:24.855286635229987,7:186.18271721339505)11:77.07985848434339)12:0.0</statenode>
+<statenode id='clockRate.c:dummyname'>clockRate.c:dummyname[1 1] (0.0,Infinity): 0.0013838864576803881 </statenode>
+<statenode id='diversificationRateFBD.t:dummyname'>diversificationRateFBD.t:dummyname[1 1] (0.0,Infinity): 0.001065835616951739 </statenode>
+<statenode id='turnoverFBD.t:dummyname'>turnoverFBD.t:dummyname[1 1] (0.0,1.0): 0.8966663571589776 </statenode>
+<statenode id='samplingProportionFBD.t:dummyname'>samplingProportionFBD.t:dummyname[1 1] (0.0,1.0): 0.16995679864242896 </statenode>
+<statenode id='originFBD.t:dummyname'>originFBD.t:dummyname[1 1] (0.0,Infinity): 550.8211216736962 </statenode>
+</itsabeastystatewerein>
+<!--
+{"operators":[
+{"id":"StrictClockRateScaler.c:dummyname","p":"NaN","accept":2504,"reject":10477,"acceptFC":2499,"rejectFC":10118,"rejectIv":12,"rejectOp":5,"nProposals":12981,"param_mean_sum":"[0.0015773519386861929]","param_mean_SS":"[2.584359600509221E-6]","numAccepts":"[2407, 97]","numProposals":"[9948, 2034]","operator_mean_runtimes":"[0.05753769601929003, 0.058955752212390876]","mean_SS":"[[6.087165587599567E-9], [1.0550783491014512E-8]]","weights":"[0.7499578583761803, 0.25004214162381966]","operators":[{"id":"AVMNOperator.dummyname","p":0.0014828302623269413,"means":"[-6.455053086147723, 288.4738995917829]","covariance":"[0.054628661589635134, -12.612071655937022, 3292.6029295579337]","accept":2601,"reject":9071,"acceptFC":2596,"rejectFC":8695,"rejectIv":21,"rejectOp":10},{"id":"StrictClockRateScalerX.c:dummyname","p":0.1077387982287386,"accept":97,"reject":2424,"acceptFC":93,"rejectFC":2244,"rejectIv":0,"rejectOp":0}]},
+{"id":"strictClockUpDownOperator.c:dummyname","p":"NaN","accept":2958,"reject":10121,"acceptFC":2954,"rejectFC":9733,"rejectIv":2994,"rejectOp":112,"nProposals":13079,"param_mean_sum":"[0.0015824047110186807, 107.49420472450556]","param_mean_SS":"[2.600375694716684E-6, 11779.955112330274]","numAccepts":"[194, 2764]","numProposals":"[706, 11374]","operator_mean_runtimes":"[0.06326062322946173, 0.04561860383329336]","mean_SS":"[[5.200769206096785E-9, 0.004113327029684373], [4.33236686748362E-8, 5888.601690443107]]","weights":"[0.0016504884190689495, 0.9983495115809311]","operators":[{"id":"AVMNOperator.dummyname","p":0.0014828302623269413,"means":"[-6.455053086147723, 288.4738995917829]","covariance":"[0.054628661589635134, -12.612071655937022, 3292.6029295579337]","accept":2601,"reject":9071,"acceptFC":2596,"rejectFC":8695,"rejectIv":21,"rejectOp":10},{"id":"strictClockUpDownOperatorX.c:dummyname","p":0.16026114218989854,"accept":2764,"reject":9103,"acceptFC":2764,"rejectFC":8912,"rejectIv":2985,"rejectOp":107}]},
+{"id":"originScalerFBD.t:dummyname","p":0.5172996298182193,"accept":6902,"reject":18877,"acceptFC":6571,"rejectFC":18448,"rejectIv":5513,"rejectOp":0},
+{"id":"divRateScalerFBD.t:dummyname","p":0.3297513042113497,"accept":24988,"reject":61759,"acceptFC":23146,"rejectFC":61080,"rejectIv":0,"rejectOp":0},
+{"id":"turnoverScalerFBD.t:dummyname","p":0.7547546731532521,"accept":21148,"reject":65046,"acceptFC":20636,"rejectFC":63085,"rejectIv":18764,"rejectOp":18632},
+{"id":"samplingPScalerFBD.t:dummyname","p":0.2457800061187157,"accept":25597,"reject":61187,"acceptFC":23575,"rejectFC":60689,"rejectIv":4604,"rejectOp":4525},
+{"id":"LeafToSAFBD.t:dummyname","p":"NaN","accept":11,"reject":86684,"acceptFC":0,"rejectFC":84211,"rejectIv":75543,"rejectOp":75543},
+{"id":"SAWilsonBaldingFBD.t:dummyname","p":"NaN","accept":536,"reject":86041,"acceptFC":497,"rejectFC":83590,"rejectIv":6297,"rejectOp":6169},
+{"id":"SAWideFBD.t:dummyname","p":"NaN","accept":718,"reject":85923,"acceptFC":677,"rejectFC":83465,"rejectIv":46590,"rejectOp":46590},
+{"id":"SANarrowFBD.t:dummyname","p":"NaN","accept":5451,"reject":80824,"acceptFC":5142,"rejectFC":78591,"rejectIv":580,"rejectOp":580},
+{"id":"SAUniformOperatorFBD.t:dummyname","p":"NaN","accept":59994,"reject":112797,"acceptFC":58305,"rejectFC":109459,"rejectIv":1,"rejectOp":1},
+{"id":"SATreeRootScalerFBD.t:dummyname","p":0.851319163695583,"accept":2679,"reject":5886,"acceptFC":2579,"rejectFC":5738,"rejectIv":1141,"rejectOp":3},
+{"id":"SATreeScalerFBD.t:dummyname","p":0.9041693579217466,"accept":7729,"reject":18163,"acceptFC":7547,"rejectFC":17623,"rejectIv":2164,"rejectOp":14}
+]}
+-->

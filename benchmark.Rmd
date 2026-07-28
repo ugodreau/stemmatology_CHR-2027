@@ -99,7 +99,8 @@ for(i in 0:99){
   mcc_tree = fbd(data,
                  dates_vector,
                  template_file =
-                   "beast_templates/FBD_NJinit_serial.xml",
+                   "beast_templates/BDSKY_serial.xml",
+                   #"beast_templates/FBD_NJinit_serial.xml",
                  out = 
                    paste("rbeast_out/", "sequences_", i, sep=""),
                  chain_length=1000000, 
@@ -135,7 +136,8 @@ ggplot(data = res) +
   geom_boxplot(aes(x = "UNJ", y = UNJ)) +
   geom_boxplot(aes(x = "MP", y = MP)) +
   geom_boxplot(aes(x = "ML", y = ML)) +
-  geom_boxplot(aes(x = "FBD", y = FBD)) +
+  #geom_boxplot(aes(x = "FBD", y = FBD)) +
+  geom_boxplot(aes(x = "BDSky", y = FBD)) +
   xlab("Method") +
   ylab("Quartet distance") +
   ggtitle("Unrooted trees quartet distance to GT", subtitle =  "(local agreements/families)")
@@ -155,7 +157,8 @@ ggplot(data = res) +
   geom_boxplot(aes(x = "UNJ", y = UNJ)) +
   geom_boxplot(aes(x = "MP", y = MP)) +
   geom_boxplot(aes(x = "ML", y = ML)) +
-  geom_boxplot(aes(x = "FBD", y = FBD)) +
+  #geom_boxplot(aes(x = "FBD", y = FBD)) +
+  geom_boxplot(aes(x = "BDSky", y = FBD)) +
   xlab("Method") +
   ylab("gRF dissimilarity") +
   ggtitle("Unrooted trees gRF distance to GT", sub="(Topology)")

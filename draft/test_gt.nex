@@ -1,0 +1,4 @@
+#NEXUS
+Begin trees;
+tree TREE_MCC_median = (((ms_282[state=True:length=1],ms_447[state=True:length=1])ms_68[state=False:length=1],ms_300[state=True:length=7])ms_16[state=False:length=0],(((ms_368[state=True:length=1],ms_413[state=True:length=4])ms_50[state=False:length=5],ms_473[state=True:length=3],ms_332[state=True:length=1])ms_6[state=False:length=0],ms_453[state=True:length=4])ms_4[state=False:length=1])ms_0[state=False];;
+End;

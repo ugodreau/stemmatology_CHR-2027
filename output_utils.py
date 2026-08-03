@@ -121,9 +121,9 @@ def to_newick(G, root=None, node_attrs=None, edge_attrs=None, branch_attr="weigh
         # Recurse into children first
         if children:
             subtrees = ",".join(build(c, node) for c in children)
-            label = f"({subtrees}){node}"
+            label = f"({subtrees})ms_{node}"
         else:
-            label = f"{node}"
+            label = f"ms_{node}"
 
         # Branch length (from the edge connecting parent -> node)
         branch_len = ""

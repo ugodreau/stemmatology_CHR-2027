@@ -1,4 +1,0 @@
-#NEXUS
-Begin trees;
-tree TREE_MCC_median = ((((322[state=True:length=6],198[state=True:length=6],197[state=True:length=2])47[state=False:length=0],157[state=True:length=2])8[state=False:length=0],56[state=True:length=3])3[state=False:length=1],(239[state=True:length=0],255[state=True:length=3])40[state=False:length=1],189[state=True:length=4])1[state=False];
-End;

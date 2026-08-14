@@ -1,79 +1,94 @@
-generate_beast2_mk_xml <- function(phy_data, xml_outfile, chain_length = 1000000, sample_every = 1000) {
+library(phangorn)
+library(xml2)
+library(tracerer)
+library(ape)
+
+generate_xml_from_template <- function(phy_data, 
+                                       dates_vector,
+                                       template_xml_path, 
+                                       output_xml_path, 
+                                       chain_length = 10000000) {
   
-  # 1. Extract matrix and taxa names
+  # 1. Read Template XML First
+  doc <- read_xml(template_xml_path)
+  
+  # 2. Parse Input Data
   mat <- as.character(phy_data)
-  taxa <- gsub("[;| ]", "_", rownames(mat))
+  taxa <- gsub("[;| ]", "_", rownames(mat)) # Clean taxon names (e.g. "305")
   n_taxa <- length(taxa)
-  n_sites <- ncol(mat)
   
-  # Find unique numeric state levels (e.g., "0", "1", "2", ..., "6")
+  # Determine max state number dynamically
   unique_states <- sort(unique(as.vector(mat)))
-  unique_states <- unique_states[!unique_states %in% c("-", "?")] # Exclude gaps
-  k_states <- length(unique_states)
-  state_code_str <- paste(unique_states, collapse = " ")
+  unique_states <- unique_states[!unique_states %in% c("-", "?")]
+  max_states <- length(unique_states)
   
-  # 2. Build Base XML Structure
-  doc <- xml2::xml_new_root("beast", 
-                      version = "2.7", 
-                      namespace = "beast.pkgannotator:beast.base.inference:beast.base.evolution.alignment:beast.base.evolution.tree:beast.base.evolution.sitemodel:beast.base.evolution.substitutionmodel")
+  # 3. Match Dates from dates_vector
+  # Convert calendar years to "Years Before Present" (where youngest = 0)
+  calendar_dates <- sapply(taxa, function(tx) {
+    if (tx %in% names(dates_vector)) as.numeric(dates_vector[[tx]]) else 0
+  })
   
-  # Add UserDataType definition (for discrete numeric states)
-  user_data_type <- xml2::xml_add_child(doc, "userDataType", 
-                                  id = "customDataType", 
-                                  spec = "beast.base.evolution.datatype.UserDataType", 
-                                  states = as.character(k_states), 
-                                  codeMap = state_code_str)
+  max_year <- max(calendar_dates, na.rm = TRUE)
+  tip_ages <- max_year - calendar_dates  # Youngest becomes 0.0!
   
-  # Add Sequence Alignment
-  alignment <- xml2::xml_add_child(doc, "alignment", id = "alignment", spec = "Alignment", userDataType = "@customDataType")
-  for (i in seq_len(n_taxa)) {
-    seq_str <- paste(mat[i, ], collapse = "")
-    xml2::xml_add_child(alignment, "sequence", id = paste0("seq_", taxa[i]), taxon = taxa[i], totalcount = as.character(k_states), value = seq_str)
+  trait_pairs <- paste0(taxa, "=", tip_ages)
+  trait_string <- paste(trait_pairs, collapse = ",")
+  
+  # Max age is now the oldest manuscript's age:
+  max_age <- max(tip_ages, na.rm = TRUE)
+  safe_origin <- max_age + 100.0
+
+  # Update origin parameter value in XML
+  origin_node <- xml_find_first(doc, "//parameter[@id='originFBD.t:dummyname']")
+  if (!is.na(origin_node)) {
+    xml_text(origin_node) <- as.character(safe_origin)
   }
   
-  # 3. Add MCMC Block
-  mcmc <- xml2::xml_add_child(doc, "run", id = "mcmc", spec = "MCMC", chainLength = as.character(chain_length))
+  # 5. Update Chain Length
+  mcmc_node <- xml_find_first(doc, "//run[@id='mcmc']")
+  if (!is.na(mcmc_node)) {
+    xml_attr(mcmc_node, "chainLength") <- as.character(chain_length)
+  }
+  # increase number of initialisation attempts
+  xml_attr(mcmc_node, "numInitializationAttempts") <- "1000"
   
-  # State Parameters (Tree + Clock)
-  state <- xml2::xml_add_child(mcmc, "state", id = "state", storeEvery = "5000")
-  xml2::xml_add_child(state, "tree", id = "Tree.t:alignment", spec = "Tree", name = "stateNode")
+  # 6. Populate <data id="dummyname">
+  data_node <- xml_find_first(doc, "//data[@id='dummyname']")
+  xml_replace(data_node, xml_new_root("data", id = "dummyname", spec = "Alignment", dataType = "standard", name = "alignment"))
+  data_node <- xml_find_first(doc, "//data[@id='dummyname']")
   
-  # Init Random Tree
-  init <- xml2::xml_add_child(mcmc, "init", id = "RandomTree.t:alignment", spec = "RandomTree", estimate = "false", initial = "@Tree.t:alignment", taxa = "@alignment")
-  xml2::xml_add_child(init, "populationModel", id = "ConstantPopulation0", spec = "ConstantPopulation")
+  # Add userDataType mapping
+  xml_add_child(
+    data_node, 
+    "userDataType", 
+    id = "StandardData.0", 
+    spec = "beast.base.evolution.datatype.StandardData", 
+    nrOfStates = as.character(max_states)
+  )
   
-  # Posterior Distribution
-  posterior <- xml2::xml_add_child(mcmc, "distribution", id = "posterior", spec = "CompoundDistribution")
-  prior <- xml2::xml_add_child(posterior, "distribution", id = "prior", spec = "CompoundDistribution")
+  # Append Sequences
+  for (i in seq_len(n_taxa)) {
+    seq_str <- paste(mat[i, ], collapse = "")
+    xml_add_child(data_node, "sequence", 
+                  id = paste0("seq_", taxa[i]), 
+                  taxon = taxa[i], 
+                  totalcount = as.character(max_states), 
+                  value = seq_str)
+  }
   
-  # Yule Tree Prior
-  yule <- xml2::xml_add_child(prior, "distribution", id = "YuleModel.t:alignment", spec = "beast.base.evolution.speciation.YuleModel", tree = "@Tree.t:alignment")
-  xml2::xml_add_child(yule, "parameter", id = "birthRate.t:alignment", spec = "parameter.RealParameter", name = "birthRate", value = "1.0")
+  # 7. Update Date Trait Set
+  trait_node <- xml_find_first(doc, "//trait[@id='dateTrait.t:dummyname']")
+  if (!is.na(trait_node)) {
+    xml_attr(trait_node, "value") <- trait_string
+  }
   
-  # Likelihood Calculation (Lewis Mk + Gamma)
-  likelihood <- xml2::xml_add_child(posterior, "distribution", id = "likelihood", spec = "CompoundDistribution")
-  tree_lik <- xml2::xml_add_child(likelihood, "distribution", id = "treeLikelihood", spec = "TreeLikelihood", data = "@alignment", tree = "@Tree.t:alignment")
+  # 8. Update LewisMK State Number Dynamically
+  mk_node <- xml_find_first(doc, "//substModel[@id='LewisMK.s:dummyname']")
+  if (!is.na(mk_node)) {
+    xml_attr(mk_node, "stateNumber") <- as.character(max_states)
+  }
   
-  # Site Model (JC69 as Mk model + Gamma Rate Categories)
-  site_model <- xml2::xml_add_child(tree_lik, "siteModel", id = "SiteModel", spec = "SiteModel", gammaCategoryCount = "4")
-  xml2::xml_add_child(site_model, "substModel", id = "LewisMk", spec = "JukesCantor")
-  
-  # Operators (Tree Topology Proposals)
-  xml2::xml_add_child(mcmc, "operator", id = "YuleBirthRateScaler", spec = "kernel.base.ScalerOperator", parameter = "@birthRate.t:alignment", weight = "3.0")
-  xml2::xml_add_child(mcmc, "operator", id = "SubtreeSlide", spec = "operator.kernel.SubtreeSlide", tree = "@Tree.t:alignment", weight = "15.0")
-  xml2::xml_add_child(mcmc, "operator", id = "NarrowExchange", spec = "operator.kernel.Exchange", tree = "@Tree.t:alignment", weight = "15.0")
-  xml2::xml_add_child(mcmc, "operator", id = "WideExchange", spec = "operator.kernel.Exchange", isNarrow = "false", tree = "@Tree.t:alignment", weight = "3.0")
-  xml2::xml_add_child(mcmc, "operator", id = "WilsonBalding", spec = "operator.kernel.WilsonBalding", tree = "@Tree.t:alignment", weight = "3.0")
-  
-  # Loggers
-  logger_file <- xml2::xml_add_child(mcmc, "logger", id = "tracelog", fileName = paste0(xml_outfile, ".log"), logEvery = as.character(sample_every), spec = "Logger")
-  xml2::xml_add_child(logger_file, "log", idref = "posterior")
-  xml2::xml_add_child(logger_file, "log", idref = "likelihood")
-  
-  logger_tree <- xml2::xml_add_child(mcmc, "logger", id = "treelog", fileName = paste0(xml_outfile, ".trees"), logEvery = as.character(sample_every), spec = "Logger")
-  xml2::xml_add_child(logger_tree, "log", idref = "Tree.t:alignment")
-  
-  # Write XML to file
-  xml2::write_xml(doc, xml_outfile)
-  message("BEAST2 XML successfully written to: ", xml_outfile)
+  # 9. Write Executable XML
+  write_xml(doc, output_xml_path)
+  message("BEAST2 XML successfully adapted and saved to: ", output_xml_path)
 }

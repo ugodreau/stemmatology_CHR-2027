@@ -27,18 +27,18 @@ Create the results matrix
 
 ```{r}
 results_quartet = matrix(nrow = 100, 
-                 ncol = 5, 
+                 ncol = 7, 
                  data = numeric(),
                  dimnames = list(
   paste("Tree_", 0:99),
-  c("NJ", "UNJ", "MP", "ML", "FBD")
+  c("NJ", "UNJ", "MP_mean", "MP_SC", "ML", "FBD_MCC", "FBD_MRC")
 ))
 results_grf = matrix(nrow = 100, 
-                 ncol = 5, 
+                 ncol = 7, 
                  data = numeric(),
                  dimnames = list(
   paste("Tree_", 0:99),
-  c("NJ", "UNJ", "MP", "ML", "FBD")
+   c("NJ", "UNJ", "MP_mean", "MP_SC", "ML", "FBD_MCC", "FBD_MRC")
 ))
 ```
 
@@ -96,11 +96,11 @@ for(i in 0:99){
     control = pml.control(trace = 0)
   )
   # And now bayesian FBD-based analysis
-  mcc_tree = fbd(data,
+  BI = fbd(data,
                  dates_vector,
                  template_file =
-                   "beast_templates/BDSKY_serial.xml",
-                   #"beast_templates/FBD_NJinit_serial.xml",
+                   #"beast_templates/BDSKY_serial.xml",
+                   "beast_templates/FBD_NJinit_serial.xml",
                  out = 
                    paste("rbeast_out/", "sequences_", i, sep=""),
                  chain_length=1000000, 
@@ -108,17 +108,23 @@ for(i in 0:99){
   
   results_quartet[i+1, "NJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeNJ, nTip = TRUE), similarity = FALSE)
   results_quartet[i+1, "UNJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeUNJ, nTip = TRUE), similarity = FALSE)
-  results_quartet[i+1, "MP"] <- mean(Quartet::QuartetDivergence(Quartet::QuartetStatus(mm_tree, cf=gt, nTip = TRUE), similarity = FALSE))# taking the mean. Other option: take a consensus tree
-  results_quartet[i+1, "ML"] <- mean(Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt$tree, cf=gt, nTip = TRUE), similarity = FALSE))
+  results_quartet[i+1, "MP_mean"] <- mean(Quartet::QuartetDivergence(Quartet::QuartetStatus(mm_tree, cf=gt, nTip = TRUE), similarity = FALSE))# taking the mean. Other option: take a consensus tree
+  results_quartet[i+1, "MP_SC"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(consensus(mm_tree, p = 1), cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt$tree, cf=gt, nTip = TRUE), similarity = FALSE)
+
   
   results_grf[i+1, "NJ"] <- TreeDist::TreeDistance(gt, treeNJ)
   results_grf[i+1, "UNJ"] <- TreeDist::TreeDistance(gt, treeUNJ)
-  results_grf[i+1, "MP"] <- mean(TreeDist::TreeDistance(mm_tree, gt))# taking the mean. Other option: take a consensus tree
+  results_grf[i+1, "MP_mean"] <- mean(TreeDist::TreeDistance(mm_tree, gt))# taking the mean. Other option: take a consensus tree
+  results_grf[i+1, "MP_SC"] <- TreeDist::TreeDistance(consensus(mm_tree, p = 1), gt)
   results_grf[i+1, "ML"] <- mean(TreeDist::TreeDistance(fit_opt$tree, gt))
   
-  if(!is.null(mcc_tree)){
-    results_quartet[i+1, "FBD"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, mcc_tree, nTip = TRUE), similarity = FALSE)
-  results_grf[i+1, "FBD"] <- TreeDist::TreeDistance(gt, mcc_tree)
+  if(!is.null(BI)){
+    results_quartet[i+1, "FBD_MCC"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, BI$mcc_tree, nTip = TRUE), similarity = FALSE)
+  results_grf[i+1, "FBD_MCC"] <- TreeDist::TreeDistance(gt, BI$mcc_tree)
+  results_quartet[i+1, "FBD_MRC"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, BI$mrc_tree, nTip = TRUE), similarity = FALSE)
+  results_grf[i+1, "FBD_MRC"] <- TreeDist::TreeDistance(gt, BI$mrc_tree)
+  
   }
 }
 ```
@@ -132,12 +138,14 @@ Now plot:
 library(ggplot2)
 res = as.data.frame(results_quartet)
 ggplot(data = res) +
-  geom_boxplot(aes(x = "NJ (hamming)", y = NJ)) +
+  geom_boxplot(aes(x = "NJ", y = NJ)) +
   geom_boxplot(aes(x = "UNJ", y = UNJ)) +
-  geom_boxplot(aes(x = "MP", y = MP)) +
+  geom_boxplot(aes(x = "MP (mean)", y = MP_mean)) +
+  geom_boxplot(aes(x = "MP (SC)", y = MP_SC)) +
   geom_boxplot(aes(x = "ML", y = ML)) +
-  #geom_boxplot(aes(x = "FBD", y = FBD)) +
-  geom_boxplot(aes(x = "BDSky", y = FBD)) +
+  geom_boxplot(aes(x = "FBD (MCC)", y = FBD_MCC)) +
+  geom_boxplot(aes(x = "FBD (MRC)", y = FBD_MRC)) +
+  #geom_boxplot(aes(x = "BDSky", y = FBD)) +
   xlab("Method") +
   ylab("Quartet distance") +
   ggtitle("Unrooted trees quartet distance to GT", subtitle =  "(local agreements/families)")
@@ -153,17 +161,72 @@ results_quartet
 res = as.data.frame(results_grf)
 library(ggplot2)
 ggplot(data = res) +
-  geom_boxplot(aes(x = "NJ (hamming)", y = NJ)) +
+  geom_boxplot(aes(x = "NJ", y = NJ)) +
   geom_boxplot(aes(x = "UNJ", y = UNJ)) +
-  geom_boxplot(aes(x = "MP", y = MP)) +
+  geom_boxplot(aes(x = "MP (mean)", y = MP_mean)) +
+  geom_boxplot(aes(x = "MP (SC)", y = MP_SC)) +
   geom_boxplot(aes(x = "ML", y = ML)) +
-  #geom_boxplot(aes(x = "FBD", y = FBD)) +
-  geom_boxplot(aes(x = "BDSky", y = FBD)) +
+  geom_boxplot(aes(x = "FBD (MCC)", y = FBD_MCC)) +
+  geom_boxplot(aes(x = "FBD (MRC)", y = FBD_MRC)) +
+  #geom_boxplot(aes(x = "BDSky", y = FBD)) +
   xlab("Method") +
   ylab("gRF dissimilarity") +
   ggtitle("Unrooted trees gRF distance to GT", sub="(Topology)")
 ```
 
+# Save the ML trees to disk
+
+```{r}
+for(i in 0:99){
+  attempt <- tryCatch({
+    # Load data and gt tree
+    ## load, clean, write, read each nexus file
+    ### Data first
+    raw <- readLines(paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), warn = FALSE)
+    # create the dates vector for bayesian methods
+    matches <- regmatches(raw, regexec("ms_([0-9]+)\\|([0-9]+)", raw))
+    matched_matrix <- do.call(rbind, lapply(matches, function(x) if(length(x) == 3) x[2:3] else NULL))
+    # Create a lookup vector: c("305" = 246, "108" = 120, ...)
+    dates_vector <- setNames(as.numeric(matched_matrix[,2]), matched_matrix[,1])
+    # and now clean the names to avoid issues with nexus reading
+    clean_raw <- gsub("ms\\_|[|]\\S*", "", raw)
+    tmp <- tempfile(fileext = ".nex")
+    writeLines(clean_raw, tmp)
+    data <- ape::read.nexus.data(tmp)
+    unlink(tmp)
+    data = phyDat(data, type = "USER", levels = 0:10, ambiguity=NA)
+    ### Then GT, without forgetting the 0-length edge conversion
+    gt_raw = readLines(con = paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""), warn = FALSE)
+    gt <- convert_gt_internal_nodes(gt_raw)
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
+    return(NULL)
+  })
+  
+  # --- 2. Skip to next iteration if loading failed ---
+  if (is.null(attempt)) {
+    next
+  }
+  # Perform analyses
+  #dm <- dist.ml(data)
+  #treeNJ <- NJ(dm)
+  dm <- dist.hamming(data)
+  treeNJ<- NJ(dm)
+  fit_mk <- pml(treeNJ, data = data)
+  fit_opt <- optim.pml(
+    fit_mk, 
+    optNni = TRUE,      # Optimize topology via NNI
+    optEdge = TRUE,     # Optimize branch lengths
+    #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+    control = pml.control(trace = 0)
+  )
+  
+  write.tree(fit_opt$tree, file=paste("ml_out/", i, ".tree", sep=""))
+
+}
+```
+```
 
 
 

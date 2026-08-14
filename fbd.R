@@ -44,6 +44,9 @@ fbd <- function(data,
   n_trees <- length(trees)
   burnin_cutoff <- floor(0.1 * n_trees)
   trees_after_burnin <- trees[(burnin_cutoff + 1):n_trees]
+  
+  mrc_tree = consensus(trees_after_burnin, p = 0.5)
+  
   # Handle Sampled Ancestors in Consensus Trees
   treeannotator_bin <- paste(bin_folder, "treeannotator", sep="")
   system2(command = treeannotator_bin, 
@@ -51,5 +54,10 @@ fbd <- function(data,
           stdout = FALSE)
   # Read the MCC tree with annotations preserved
   mcc_tree <- read.nexus("mcc_tree.tree")
-  return(mcc_tree)
+  
+  BI = list()
+  BI$mcc_tree = mcc_tree
+  BI$mrc_tree = mrc_tree
+  
+  return(BI)
 }

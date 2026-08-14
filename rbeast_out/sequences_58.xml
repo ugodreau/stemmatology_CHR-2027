@@ -21,7 +21,7 @@
   <map name="prior">beast.base.inference.distribution.Prior</map>
   <map name="InverseGamma">beast.base.inference.distribution.InverseGamma</map>
   <map name="OneOnX">beast.base.inference.distribution.OneOnX</map>
-  <run id="mcmc" spec="MCMC" chainLength="1e+06">
+  <run id="mcmc" spec="MCMC" chainLength="1e+06" numInitializationAttempts="1000">
     <state id="state" spec="State" storeEvery="5000">
       <tree id="Tree.t:dummyname" spec="beast.base.evolution.tree.Tree" name="stateNode">
         <trait id="dateTrait.t:dummyname" spec="beast.base.evolution.tree.TraitSet" traitname="date" value="95=73,163=43,188=35,287=17,348=7,359=6,361=5,391=0">
@@ -42,6 +42,7 @@
         <parameter id="randomPopSize.t:dummyname" spec="parameter.RealParameter" name="popSize">1.0</parameter>
       </populationModel>
     </init>
+    <init id="NJTree.t:dummyname" spec="beast.base.evolution.tree.ClusterTree" clusterType="neighborjoining2" estimate="false" initial="@Tree.t:dummyname" taxa="@dummyname"/>
     <distribution id="posterior" spec="CompoundDistribution">
       <distribution id="prior" spec="CompoundDistribution">
         <distribution id="FBD.t:dummyname" spec="sa.evolution.speciation.SABirthDeathModel" conditionOnRhoSampling="true" diversificationRate="@diversificationRateFBD.t:dummyname" origin="@originFBD.t:dummyname" samplingProportion="@samplingProportionFBD.t:dummyname" tree="@Tree.t:dummyname" turnover="@turnoverFBD.t:dummyname">

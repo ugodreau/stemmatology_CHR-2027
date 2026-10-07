@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r load}
 ## Put your beast2 bin path here
 beast_bin_folder = "/home/jbcamps/Data/F/Stemmatologie/bayesian/beast/bin/"
 
@@ -18,6 +18,7 @@ library("phangorn")
 source("convert_gt_internal_to_zero.R")
 source("fbd.R")
 #source("generate_beast.R")
+library(ggplot2)
 ```
 
 
@@ -25,7 +26,7 @@ source("fbd.R")
 
 Create the results matrix
 
-```{r}
+```{r prepResMat}
 results_quartet = matrix(nrow = 100, 
                  ncol = 7, 
                  data = numeric(),
@@ -44,8 +45,10 @@ results_grf = matrix(nrow = 100,
 
 And now iterate and score:
 
-```{r, echo=FALSE}
-for(i in 0:99){
+```{r benchmark, echo=FALSE}
+n = 99
+pb = txtProgressBar(min = 0, max = n, style = 3)
+for(i in 0:n){
   attempt <- tryCatch({
     # Load data and gt tree
     ## load, clean, write, read each nexus file
@@ -124,8 +127,13 @@ for(i in 0:99){
   results_grf[i+1, "FBD_MCC"] <- TreeDist::TreeDistance(gt, BI$mcc_tree)
   results_quartet[i+1, "FBD_MRC"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, BI$mrc_tree, nTip = TRUE), similarity = FALSE)
   results_grf[i+1, "FBD_MRC"] <- TreeDist::TreeDistance(gt, BI$mrc_tree)
-  
+  # save objects to disk
+  write.tree(BI$mrc_tree, file=paste("rbeast_out/mrc_", i, ".tree", sep=""))
+  write.tree(BI$mcc_tree, file=paste("rbeast_out/mcc_", i, ".tree", sep=""))
   }
+  # save objects to disk
+  write.tree(fit_opt$tree, file=paste("ml_out/", i, ".tree", sep=""))
+  
 }
 ```
 
@@ -135,13 +143,13 @@ for(i in 0:99){
 Now plot:
 
 ```{r}
-library(ggplot2)
 res = as.data.frame(results_quartet)
 ggplot(data = res) +
   geom_boxplot(aes(x = "NJ", y = NJ)) +
   geom_boxplot(aes(x = "UNJ", y = UNJ)) +
   geom_boxplot(aes(x = "MP (mean)", y = MP_mean)) +
   geom_boxplot(aes(x = "MP (SC)", y = MP_SC)) +
+  geom_boxplot(aes(x = "MP (IW, SC)", y = MP_IW_SC)) +
   geom_boxplot(aes(x = "ML", y = ML)) +
   geom_boxplot(aes(x = "FBD (MCC)", y = FBD_MCC)) +
   geom_boxplot(aes(x = "FBD (MRC)", y = FBD_MRC)) +
@@ -165,6 +173,7 @@ ggplot(data = res) +
   geom_boxplot(aes(x = "UNJ", y = UNJ)) +
   geom_boxplot(aes(x = "MP (mean)", y = MP_mean)) +
   geom_boxplot(aes(x = "MP (SC)", y = MP_SC)) +
+  geom_boxplot(aes(x = "MP (IW, SC)", y = MP_IW_SC)) +
   geom_boxplot(aes(x = "ML", y = ML)) +
   geom_boxplot(aes(x = "FBD (MCC)", y = FBD_MCC)) +
   geom_boxplot(aes(x = "FBD (MRC)", y = FBD_MRC)) +
@@ -174,9 +183,45 @@ ggplot(data = res) +
   ggtitle("Unrooted trees gRF distance to GT", sub="(Topology)")
 ```
 
-# Save the ML trees to disk
+
+# Test implied weights
+
+Create the results matrix
 
 ```{r}
+results_quartet = matrix(nrow = 100, 
+                 ncol = 8, 
+                 data = numeric(),
+                 dimnames = list(
+  paste("Tree_", 0:99),
+  c("NJ", "UNJ", "MP_mean", "MP_SC", "MP_IW_SC", "ML", "FBD_MCC", "FBD_MRC")
+))
+results_grf = matrix(nrow = 100, 
+                 ncol = 8, 
+                 data = numeric(),
+                 dimnames = list(
+  paste("Tree_", 0:99),
+   c("NJ", "UNJ", "MP_mean", "MP_SC", "MP_IW_SC",  "ML", "FBD_MCC", "FBD_MRC")
+))
+```
+
+```{r}
+clean_phydat_attributes <- function(dataset) {
+  # Strip NA entries from the hidden level attributes
+  if (!is.null(attr(dataset, "levels"))) {
+    attr(dataset, "levels") <- attr(dataset, "levels")[!is.na(attr(dataset, "levels"))]
+  }
+  if (!is.null(attr(dataset, "allLevels"))) {
+    attr(dataset, "allLevels") <- attr(dataset, "allLevels")[!is.na(attr(dataset, "allLevels"))]
+  }
+  return(dataset)
+}
+```
+
+
+And now iterate and score:
+
+```{r, echo=FALSE}
 for(i in 0:99){
   attempt <- tryCatch({
     # Load data and gt tree
@@ -213,6 +258,24 @@ for(i in 0:99){
   #treeNJ <- NJ(dm)
   dm <- dist.hamming(data)
   treeNJ<- NJ(dm)
+  treeUNJ <- UNJ(dm)
+  mm_start <- treeNJ#random.addition(data)
+  # Applying the pratchet method for maximum parsimony
+  # Default, fitch + SPR
+  mm_tree <- pratchet(data, start = mm_start, minit = 10, maxit = 10000, all = TRUE, trace = 0, method = "fitch", rearrangements = "SPR", perturbation = "ratchet")
+  # Implied weights MP
+  # 1. Clean your dataset
+  data_clean <- clean_phydat_attributes(data)
+  iw_trees <- TreeSearch::MaximizeParsimony(
+    data_clean,
+    ape::root(treeNJ, outgroup = 1, resolve.root = TRUE),
+    ratchIter = 30L,
+    maxHits = 30,
+    tbrIter = 6L,
+    concavity = 10,
+    verbosity = 1
+  )
+  ## Maximum likelihood
   fit_mk <- pml(treeNJ, data = data)
   fit_opt <- optim.pml(
     fit_mk, 
@@ -222,11 +285,245 @@ for(i in 0:99){
     control = pml.control(trace = 0)
   )
   
-  write.tree(fit_opt$tree, file=paste("ml_out/", i, ".tree", sep=""))
+  results_quartet[i+1, "NJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeNJ, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "UNJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeUNJ, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "MP_mean"] <- mean(Quartet::QuartetDivergence(Quartet::QuartetStatus(mm_tree, cf=gt, nTip = TRUE), similarity = FALSE))# taking the mean. Other option: take a consensus tree
+  results_quartet[i+1, "MP_SC"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(consensus(mm_tree, p = 1), cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "MP_IW_SC"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(consensus(iw_trees, p = 1), cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt$tree, cf=gt, nTip = TRUE), similarity = FALSE)
 
+  
+  results_grf[i+1, "NJ"] <- TreeDist::TreeDistance(gt, treeNJ)
+  results_grf[i+1, "UNJ"] <- TreeDist::TreeDistance(gt, treeUNJ)
+  results_grf[i+1, "MP_mean"] <- mean(TreeDist::TreeDistance(mm_tree, gt))# taking the mean. Other option: take a consensus tree
+  results_grf[i+1, "MP_SC"] <- TreeDist::TreeDistance(consensus(mm_tree, p = 1), gt)
+  results_grf[i+1, "MP_IW_SC"] <- TreeDist::TreeDistance(consensus(iw_trees, p = 1), gt)
+  results_grf[i+1, "ML"] <- mean(TreeDist::TreeDistance(fit_opt$tree, gt))
+  
 }
 ```
+
+
+# Test ML benchmark
+
+Create the results matrix
+
+```{r}
+results_quartet = matrix(nrow = 100, 
+                 ncol = 8, 
+                 data = numeric(),
+                 dimnames = list(
+  paste("Tree_", 0:99),
+  c("NJ", "UNJ", "MP_mean", "MP_SC", "ML", "ML_x", "ML_y", "ML_z")
+))
+results_grf = matrix(nrow = 100, 
+                 ncol = 8, 
+                 data = numeric(),
+                 dimnames = list(
+  paste("Tree_", 0:99),
+   c("NJ", "UNJ", "MP_mean", "MP_SC", "ML", "ML_x", "ML_y", "ML_z")
+))
 ```
 
 
+And now iterate and score:
 
+```{r, echo=FALSE}
+n = 99
+pb = txtProgressBar(min = 0, max = n, style = 3)
+for(i in 0:n){
+  setTxtProgressBar(pb, i)
+  attempt <- tryCatch({
+    # Load data and gt tree
+    ## load, clean, write, read each nexus file
+    ### Data first
+    raw <- readLines(paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), warn = FALSE)
+    # create the dates vector for bayesian methods
+    matches <- regmatches(raw, regexec("ms_([0-9]+)\\|([0-9]+)", raw))
+    matched_matrix <- do.call(rbind, lapply(matches, function(x) if(length(x) == 3) x[2:3] else NULL))
+    # Create a lookup vector: c("305" = 246, "108" = 120, ...)
+    dates_vector <- setNames(as.numeric(matched_matrix[,2]), matched_matrix[,1])
+    # and now clean the names to avoid issues with nexus reading
+    clean_raw <- gsub("ms\\_|[|]\\S*", "", raw)
+    tmp <- tempfile(fileext = ".nex")
+    writeLines(clean_raw, tmp)
+    data <- ape::read.nexus.data(tmp)
+    unlink(tmp)
+    data = phyDat(data, type = "USER", levels = 0:10, ambiguity=NA)
+    ### Then GT, without forgetting the 0-length edge conversion
+    gt_raw = readLines(con = paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""), warn = FALSE)
+    gt <- convert_gt_internal_nodes(gt_raw)
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
+    return(NULL)
+  })
+  
+  # --- 2. Skip to next iteration if loading failed ---
+  if (is.null(attempt)) {
+    next
+  }
+  # Perform analyses
+  #dm <- dist.ml(data)
+  #treeNJ <- NJ(dm)
+  dm <- dist.hamming(data)
+  treeNJ<- NJ(dm)
+  treeUNJ <- UNJ(dm)
+  mm_start <- treeNJ#random.addition(data)
+  # Applying the pratchet method for maximum parsimony
+  # Default, fitch + SPR
+  mm_tree <- pratchet(data, start = mm_start, minit = 10, maxit = 10000, all = TRUE, trace = 0, method = "fitch", rearrangements = "SPR", perturbation = "ratchet")
+  ## Maximum likelihood
+  fit_mk <- pml(treeNJ, data = data)
+  fit_opt <- optim.pml(
+    fit_mk, 
+    optNni = TRUE,      # Optimize topology via NNI
+    optEdge = TRUE,     # Optimize branch lengths
+    #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+    control = pml.control(trace = 0)
+  )
+  ## Maximum likelihood with stochastic rearrangement
+  ## -> actually improves
+  fit_mk <- pml(treeNJ, data = data)
+  fit_opt_x <- optim.pml(
+    fit_mk, 
+    rearrangement = "stochastic", # Replaces deterministic optNni = TRUE
+    optEdge = TRUE,     # Optimize branch lengths
+    #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+    control = pml.control(trace = 0)
+  )
+  ## Maximum likelihood with Ratchet
+  attempt <- tryCatch({
+    fit_mk <- pml(treeNJ, data = data)
+    fit_opt_y <- optim.pml(
+      fit_mk, 
+      rearrangement = "ratchet", 
+      optEdge = TRUE,     # Optimize branch lengths
+      #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+      control = pml.control(
+        trace = 0#,
+        #tau = 1e-6 # Prevents zero-length edge collapse
+      )
+    )
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Error in ML Ratchet iter %d due to error: %s", i, e$message))
+  })
+  ## Maximum likelihood (NNI, but with bootstrap)
+  bs_trees <- bootstrap.pml(
+  fit_opt, 
+  bs = 1000, 
+  multicore=TRUE,
+  optNni = TRUE
+)
+  fit_opt_z = ape::consensus(bs_trees, p = 0.5)
+  
+  ## Maximum likelihood - gamma rate + stochastic
+  ## -> does not improve over stochastic
+  # fit_mk <- pml(treeNJ, data = data, k = 4)
+  # fit_opt_y <- optim.pml(
+  #   fit_mk, 
+  #   rearrangement = "stochastic", # Replaces deterministic optNni = TRUE
+  #   optEdge = TRUE,     # Optimize branch lengths
+  #   optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+  #   control = pml.control(trace = 0)
+  # )
+  ## Maximum likelihood -- Estimate State Frequencies, optBF
+  # ## -> seems to degrade perf
+  # fit_mk <- pml(treeNJ, data = data)
+  # fit_opt_y <- optim.pml(
+  #   fit_mk, 
+  #   optNni = TRUE,      # Optimize topology via NNI
+  #   optEdge = TRUE,     # Optimize branch lengths
+  #   #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+  #   optBf = TRUE,
+  #   control = pml.control(trace = 0)
+  # )
+  ## Maximum likelihood -- Ascertainment Bias Correction (+ASC) 
+  ## -> seem to worsen the scores
+  # fit_mk <- pml(treeNJ, data = data, ASC = TRUE)
+  # fit_opt_y <- optim.pml(
+  #   fit_mk, 
+  #   optNni = TRUE,      # Optimize topology via NNI
+  #   optEdge = TRUE,     # Optimize branch lengths
+  #   control = pml.control(trace = 0)
+  # )
+  ## Maximum likelihood -- asymetric transision rates
+  ## -> seems to degrade perf too
+  # fit_mk <- pml(treeNJ, data = data)
+  # fit_opt_z <- optim.pml(
+  #   fit_mk, 
+  #   optNni = TRUE,      # Optimize topology via NNI
+  #   optEdge = TRUE,     # Optimize branch lengths
+  #   #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+  #   optQ = TRUE,
+  #   control = pml.control(trace = 0)
+  # )
+  ## Maximu likelihood -- free rate + stochastic
+  ## -> does not improve over stochastic
+  # fit_mk <- pml(treeNJ, data = data, k = 4, site.rate = "free_rate")
+  # fit_opt_z <- optim.pml(
+  #   fit_mk, 
+  #   #optNni = TRUE,      # Optimize topology via NNI
+  #   rearrangement = "stochastic", # Replaces deterministic optNni = TRUE
+  #   optEdge = TRUE,     # Optimize branch lengths
+  #   optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+  #   control = pml.control(trace = 0)
+  # )
+  
+  results_quartet[i+1, "NJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeNJ, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "UNJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeUNJ, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "MP_mean"] <- mean(Quartet::QuartetDivergence(Quartet::QuartetStatus(mm_tree, cf=gt, nTip = TRUE), similarity = FALSE))# taking the mean. Other option: take a consensus tree
+  results_quartet[i+1, "MP_SC"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(consensus(mm_tree, p = 1), cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt$tree, cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML_x"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt_x$tree, cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML_y"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt_y$tree, cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML_z"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt_z, cf=gt, nTip = TRUE), similarity = FALSE)
+
+  
+  results_grf[i+1, "NJ"] <- TreeDist::TreeDistance(gt, treeNJ)
+  results_grf[i+1, "UNJ"] <- TreeDist::TreeDistance(gt, treeUNJ)
+  results_grf[i+1, "MP_mean"] <- mean(TreeDist::TreeDistance(mm_tree, gt))# taking the mean. Other option: take a consensus tree
+  results_grf[i+1, "MP_SC"] <- TreeDist::TreeDistance(consensus(mm_tree, p = 1), gt)
+  results_grf[i+1, "ML"] <- mean(TreeDist::TreeDistance(fit_opt$tree, gt))
+  results_grf[i+1, "ML_x"] <- mean(TreeDist::TreeDistance(fit_opt_x$tree, gt))
+  results_grf[i+1, "ML_y"] <- mean(TreeDist::TreeDistance(fit_opt_y$tree, gt))
+  results_grf[i+1, "ML_z"] <- mean(TreeDist::TreeDistance(fit_opt_z, gt))
+  
+  
+}
+```
+
+## ML bench results
+
+```{r}
+res = as.data.frame(results_quartet)
+ggplot(data = res) +
+  geom_boxplot(aes(x = "NJ", y = NJ)) +
+  geom_boxplot(aes(x = "UNJ", y = UNJ)) +
+  geom_boxplot(aes(x = "MP (mean)", y = MP_mean)) +
+  geom_boxplot(aes(x = "MP (SC)", y = MP_SC)) +
+  geom_boxplot(aes(x = "ML", y = ML)) +
+  geom_boxplot(aes(x = "ML_x", y = ML_x)) +
+  geom_boxplot(aes(x = "ML_y", y = ML_y)) +
+  geom_boxplot(aes(x = "ML_z", y = ML_z)) +
+  xlab("Method") +
+  ylab("Quartet distance") +
+  ggtitle("Unrooted trees quartet distance to GT", subtitle =  "(local agreements/families)")
+```
+
+```{r}
+res = as.data.frame(results_grf)
+ggplot(data = res) +
+  geom_boxplot(aes(x = "NJ", y = NJ)) +
+  geom_boxplot(aes(x = "UNJ", y = UNJ)) +
+  geom_boxplot(aes(x = "MP (mean)", y = MP_mean)) +
+  geom_boxplot(aes(x = "MP (SC)", y = MP_SC)) +
+  geom_boxplot(aes(x = "ML NNI", y = ML)) +
+  geom_boxplot(aes(x = "ML stochastic", y = ML_x)) +
+  geom_boxplot(aes(x = "ML ratchet", y = ML_y)) +
+  geom_boxplot(aes(x = "ML BS-NNI 50%MRC", y = ML_z)) +
+  xlab("Method") +
+  ylab("gRF dissimilarity") +
+  ggtitle("Unrooted trees gRF distance to GT", sub="(Topology)")
+```

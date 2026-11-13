@@ -26,18 +26,24 @@ GT:
 # Need to define a standard trick to deal with internal nodes. Here, just added a subtree
 gt = ape::read.tree(text="(((170[state=True:length=3],188[state=True:length=4])27[state=False:length=1],69[state=True:length=3])8[state=False:length=1],((93[state=True:length=0],((237[state=True:length=0])114[state=True:length=1]))74[state=False:length=2],226[state=True:length=2])25[state=False:length=2],296[state=True:length=7])0[state=False];")
 plot(gt, "unrooted", main="GT Tree", show.node.label = TRUE)
+plot(gt, type = "phylogram", main="GT Tree", root.edge = TRUE)
+nodelabels(text = gt$node.label, frame = "n", col = "red", cex = 0.8)
+
+## V2
+# ==============================================================================
+# Testing with your sample Newick string
+# ==============================================================================
+source("convert_gt_internal_to_zero.R")
+gt_raw <- "(((170[state=True:length=3],188[state=True:length=4])27[state=False:length=1],69[state=True:length=3])8[state=False:length=1],((93[state=True:length=0],((237[state=True:length=0])114[state=True:length=1]))74[state=False:length=2],226[state=True:length=2])25[state=False:length=2],296[state=True:length=7])0[state=False];"
+gt_converted <- convert_gt_internal_nodes(gt_raw)
+
+# Check that 114 is now a proper tip leaf alongside 237!
+plot(gt_converted, type = "phylogram", main="GT Tree", root.edge = TRUE)
+
+source("convert_gt_internal_to_zero.R")
+gt_zero = add_zero_length_tips_to_ground_truth(gt)
+plot(gt_zero, type = "phylogram", main="GT Tree", root.edge = TRUE)
 ```
-
-# PCC
-
-```{r}
-library("stemmatology")
-
-df = matrix(ncol = 8, data = as.numeric(unlist(data)))
-
-res = PCC.Stemma(df, omissionsAsReadings = TRUE)
-```
-
 
 
 # Cladistics
@@ -146,23 +152,71 @@ results[,4] = Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, fit_mt$tree)
 
 ## Bayesian methods (with Beast2)
 
-```{r}
-#beastier::is_beast2_installed()
-pak::pak("nmatzke/BEASTmasteR")
-```
-
 Generate the Beast2 XML
 ```{r}
-xml_file = "test.xml"
+template_file <- "beast_templates/FBD_serial.xml"
+out = "test"
+xml_out = paste(out, ".xml", sep = "")
 source("generate_beast.R")
-generate_beast2_mk_xml(data, xml_file, chain_length = 10000, sample_every = 1000)
+generate_xml_from_template(
+  phy_data          = data, 
+  template_xml_path = template_file, 
+  output_xml_path   = xml_out,
+  chain_length      = 1000000#0
+)
 ```
 
 Now run:
 ```{r}
-beast_bin <- "/home/jbcamps/Data/F/Stemmatologie/bayesian/beast/bin/beast"
-system2(command = beast_bin, args = c("-overwrite", xml_file))
+bin_folder = "/home/jbcamps/Data/F/Stemmatologie/bayesian/beast/bin/"
+beast_bin <- paste(bin_folder, "beast", sep="")
+system2(command = beast_bin, args = c("-overwrite", xml_out))
 ```
+
+
+
+```{r}
+log_file <- paste(out, ".log", sep = "")
+# Use parse_beast_tracelog_file instead of parse_beast_output
+log_data <- parse_beast_tracelog_file(log_file)
+# Remove 10% burn-in using tracerer helper
+log_no_burnin <- remove_burn_ins(log_data, burn_in_fraction = 0.1)
+# Calculate ESS values for numeric parameters
+ess_values <- calc_esses(log_no_burnin, sample_interval = 1000)
+print(ess_values)
+
+
+# ==============================================================================
+# 2. Parse & Process Posterior Trees
+# ==============================================================================
+tree_file <- paste(out, "-dummyname.trees", sep="")
+
+# Load NEXUS trees
+trees <- ape::read.nexus(tree_file)
+
+# Remove 10% burn-in manually
+n_trees <- length(trees)
+burnin_cutoff <- floor(0.1 * n_trees)
+trees_after_burnin <- trees[(burnin_cutoff + 1):n_trees]
+
+
+# ==============================================================================
+# 3. Handle Sampled Ancestors in Consensus Trees
+# ==============================================================================
+## Generate a MCC to avoid the issues of consensus trees with internal nodes
+treeannotator_bin <- paste(bin_folder, "treeannotator", sep="")
+system(paste(treeannotator_bin, "-burnin 10 -height median", tree_file, "mcc_tree.tree"))
+```
+
+```{r}
+# Read the MCC tree with annotations preserved
+mcc_tree <- read.nexus("mcc_tree.tree")
+plot(mcc_tree, main = "Maximum Clade Credibility Tree")
+write.tree(mcc_tree, file = "", append = FALSE,
+           digits = 2, tree.names = TRUE)
+Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, mcc_tree, nTip = TRUE), similarity = TRUE)
+```
+
 
 
 
@@ -232,6 +286,9 @@ plotBS(
 
 ### Topology only
 Quartet::QuartetStatus(tree1, tree2) or TreeDist::TripletDistance(tree1, tree2)
+
+Recommendation for Benchmarking Scripts:
+Report both metrics in parallel. Generalized RF gives you the global structural accuracy score, while Quartet gives you the fine-grained local relationship score.
 
 ### With branch lengths
 

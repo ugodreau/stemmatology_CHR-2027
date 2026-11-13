@@ -30,7 +30,7 @@ name="alignment">
     <run id="mcmc" spec="MCMC" chainLength="10000000">
         <state id="state" spec="State" storeEvery="5000">
             <tree id="Tree.t:dummyname" spec="beast.base.evolution.tree.Tree" name="stateNode">
-                <trait id="dateTrait.t:dummyname" spec="beast.base.evolution.tree.TraitSet" traitname="date" value="ms_59|165=165,ms_108|191=191,ms_120|196=196,ms_153|206=206,ms_198|222=222,ms_217|224=224,ms_294|237=237,ms_311|241=241">
+                <trait id="dateTrait.t:dummyname" spec="beast.base.evolution.tree.TraitSet" traitname="date-backward" value="">
                     <taxa id="TaxonSet.dummyname" spec="TaxonSet">
                         <alignment idref="dummyname"/>
                     </taxa>

@@ -6,6 +6,7 @@ source("generate_beast.R")
 fbd <- function(data, 
                 dates_vector,
                 template_file = "beast_templates/FBD_NJinit_serial.xml", 
+                nj_init = TRUE,
                 out = "test", 
                 chain_length=1000000, 
                 bin_folder = "~/.local/share/beast/bin/"){
@@ -24,13 +25,19 @@ fbd <- function(data,
   generate_xml_from_template(
     data,
     dates_vector,
+    nj_init = nj_init,
     template_file,
     xml_out,
     chain_length = chain_length
   )
   # Run Beast2
   beast_bin <- paste(bin_folder, "beast", sep="")
-  system2(command = beast_bin, args = c("-overwrite -seed 42 -prefix", sub("[^/]+$", "", out), xml_out), stdout = FALSE)
+  system2(
+    command = beast_bin, 
+    args = c("-overwrite -seed 42 -prefix", sub("[^/]+$", "", out), 
+             xml_out), 
+    stdout = paste(out, ".txt", sep=""), stderr = paste(out, ".txt", sep="")
+    )
   
   if (!file.exists(output_files[2])) {
     warning("BEAST2 run failed for: ", out)
@@ -61,3 +68,5 @@ fbd <- function(data,
   
   return(BI)
 }
+
+

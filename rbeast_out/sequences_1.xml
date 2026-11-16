@@ -21,42 +21,41 @@
   <map name="prior">beast.base.inference.distribution.Prior</map>
   <map name="InverseGamma">beast.base.inference.distribution.InverseGamma</map>
   <map name="OneOnX">beast.base.inference.distribution.OneOnX</map>
-  <run id="mcmc" spec="MCMC" chainLength="1e+06" numInitializationAttempts="1000">
+  <run id="mcmc" spec="MCMC" chainLength="10000000" numInitializationAttempts="1000" storeEvery="5000">
     <state id="state" spec="State" storeEvery="5000">
       <tree id="Tree.t:dummyname" spec="beast.base.evolution.tree.Tree" name="stateNode">
-        <trait id="dateTrait.t:dummyname" spec="beast.base.evolution.tree.TraitSet" traitname="date" value="137=59,160=51,185=42,246=27,291=16,296=16,383=2,398=0">
+        <trait id="dateTrait.t:dummyname" spec="beast.base.evolution.tree.TraitSet" traitname="date-backward" value="137=59,160=51,185=42,246=27,291=16,296=16,383=2,398=0">
           <taxa id="TaxonSet.dummyname" spec="TaxonSet">
             <alignment idref="dummyname"/>
           </taxa>
         </trait>
         <taxonset idref="TaxonSet.dummyname"/>
       </tree>
-      <parameter id="clockRate.c:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
-      <parameter id="diversificationRateFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
-      <parameter id="turnoverFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="1.0">0.5</parameter>
-      <parameter id="samplingProportionFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="1.0">0.5</parameter>
-      <parameter id="originFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">159</parameter>
+      <parameter id="mutationRate.s:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
+      <parameter id="ucldStdev.c:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">0.1</parameter>
+      <stateNode id="rateCategories.c:dummyname" spec="parameter.IntegerParameter" dimension="14">1</stateNode>
+      <parameter id="ucldMean.c:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">0.002</parameter>
+      <parameter id="diversificationRateFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">0.02</parameter>
+      <parameter id="turnoverFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="1.0">0.45</parameter>
+      <parameter id="samplingProportionFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="1.0">0.05</parameter>
+      <parameter id="originFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">109</parameter>
     </state>
     <init id="RandomTree.t:dummyname" spec="RandomTree" estimate="false" initial="@Tree.t:dummyname" taxa="@dummyname">
       <populationModel id="ConstantPopulation0.t:dummyname" spec="ConstantPopulation">
         <parameter id="randomPopSize.t:dummyname" spec="parameter.RealParameter" name="popSize">1.0</parameter>
       </populationModel>
     </init>
-    <init id="NJTree.t:dummyname" spec="beast.base.evolution.tree.ClusterTree" clusterType="neighborjoining2" estimate="false" initial="@Tree.t:dummyname" taxa="@dummyname"/>
     <distribution id="posterior" spec="CompoundDistribution">
       <distribution id="prior" spec="CompoundDistribution">
         <distribution id="FBD.t:dummyname" spec="sa.evolution.speciation.SABirthDeathModel" conditionOnRhoSampling="true" diversificationRate="@diversificationRateFBD.t:dummyname" origin="@originFBD.t:dummyname" samplingProportion="@samplingProportionFBD.t:dummyname" tree="@Tree.t:dummyname" turnover="@turnoverFBD.t:dummyname">
           <parameter id="rFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="removalProbability" upper="1.0">0.0</parameter>
           <parameter id="rhoFBD.t:dummyname" spec="parameter.RealParameter" estimate="false" lower="0.0" name="rho" upper="1.0">1.0</parameter>
         </distribution>
-        <prior id="ClockPrior.c:dummyname" name="distribution" x="@clockRate.c:dummyname">
-          <Uniform id="Uniform.0" name="distr" upper="Infinity"/>
-        </prior>
         <prior id="diversificationRatePriorFBD.t:dummyname" name="distribution" x="@diversificationRateFBD.t:dummyname">
           <Uniform id="Uniform.4" name="distr" upper="Infinity"/>
         </prior>
         <prior id="originPriorFBD.t:dummyname" name="distribution" x="@originFBD.t:dummyname">
-          <Uniform id="Uniform.3" name="distr" upper="Infinity"/>
+          <Uniform id="Uniform.3" name="distr" upper="309" lower="59"/>
         </prior>
         <prior id="samplingProportionPriorFBD.t:dummyname" name="distribution" x="@samplingProportionFBD.t:dummyname">
           <Uniform id="Uniform.6" name="distr"/>
@@ -64,40 +63,46 @@
         <prior id="turnoverPriorFBD.t:dummyname" name="distribution" x="@turnoverFBD.t:dummyname">
           <Uniform id="Uniform.5" name="distr"/>
         </prior>
+        <prior id="MeanRatePrior.c:dummyname" name="distribution" x="@ucldMean.c:dummyname">
+          <Gamma id="Gamma.3" name="distr">
+            <parameter id="RealParameter.8" spec="parameter.RealParameter" estimate="false" name="alpha">0.01</parameter>
+            <parameter id="RealParameter.9" spec="parameter.RealParameter" estimate="false" name="beta">100.0</parameter>
+          </Gamma>
+        </prior>
+        <prior id="ucldStdevPrior.c:dummyname" name="distribution" x="@ucldStdev.c:dummyname">
+          <Gamma id="Gamma.2" name="distr">
+            <parameter id="RealParameter.6" spec="parameter.RealParameter" estimate="false" name="alpha">0.5396</parameter>
+            <parameter id="RealParameter.7" spec="parameter.RealParameter" estimate="false" name="beta">0.3819</parameter>
+          </Gamma>
+        </prior>
       </distribution>
       <distribution id="likelihood" spec="CompoundDistribution" useThreads="true">
         <distribution id="treeLikelihood.dummyname" spec="ThreadedTreeLikelihood" data="@dummyname" tree="@Tree.t:dummyname">
-          <siteModel id="SiteModel.s:dummyname" spec="SiteModel">
-            <parameter id="mutationRate.s:dummyname" spec="parameter.RealParameter" estimate="false" lower="0.0" name="mutationRate">1.0</parameter>
+          <siteModel id="SiteModel.s:dummyname" spec="SiteModel" mutationRate="@mutationRate.s:dummyname">
             <parameter id="gammaShape.s:dummyname" spec="parameter.RealParameter" estimate="false" lower="0.1" name="shape">1.0</parameter>
             <parameter id="proportionInvariant.s:dummyname" spec="parameter.RealParameter" estimate="false" lower="0.0" name="proportionInvariant" upper="1.0">0.0</parameter>
             <substModel id="LewisMK.s:dummyname" spec="morphmodels.evolution.substitutionmodel.LewisMK" stateNumber="5"/>
           </siteModel>
-          <branchRateModel id="StrictClock.c:dummyname" spec="beast.base.evolution.branchratemodel.StrictClockModel" clock.rate="@clockRate.c:dummyname"/>
+          <branchRateModel id="RelaxedClock.c:dummyname" spec="beast.base.evolution.branchratemodel.UCRelaxedClockModel" clock.rate="@ucldMean.c:dummyname" rateCategories="@rateCategories.c:dummyname" tree="@Tree.t:dummyname">
+            <LogNormal id="LogNormalDistributionModel.c:dummyname" S="@ucldStdev.c:dummyname" meanInRealSpace="true" name="distr">
+              <parameter id="RealParameter.5" spec="parameter.RealParameter" estimate="false" lower="0.0" name="M" upper="1.0">1.0</parameter>
+            </LogNormal>
+          </branchRateModel>
         </distribution>
       </distribution>
     </distribution>
-    <operator id="StrictClockRateScaler.c:dummyname" spec="AdaptableOperatorSampler" weight="1.5">
-      <parameter idref="clockRate.c:dummyname"/>
-      <operator id="AVMNOperator.dummyname" spec="kernel.AdaptableVarianceMultivariateNormalOperator" allowNonsense="true" beta="0.05" burnin="400" initial="800" weight="0.1">
-        <transformations id="AVMNSumTransform.dummyname" spec="operator.kernel.Transform$LogConstrainedSumTransform"/>
-        <transformations id="AVMNLogTransform.dummyname" spec="operator.kernel.Transform$LogTransform">
-          <f idref="clockRate.c:dummyname"/>
-        </transformations>
-        <transformations id="AVMNNoTransform.dummyname" spec="operator.kernel.Transform$NoTransform">
-          <f idref="Tree.t:dummyname"/>
-        </transformations>
-      </operator>
-      <operator id="StrictClockRateScalerX.c:dummyname" spec="kernel.BactrianScaleOperator" parameter="@clockRate.c:dummyname" upper="10.0" weight="3.0"/>
+    <operator id="FixMeanMutationRatesOperator" spec="operator.kernel.BactrianDeltaExchangeOperator" delta="0.75" weight="2.0">
+      <parameter idref="mutationRate.s:dummyname"/>
+      <weightvector id="weightparameter" spec="parameter.IntegerParameter" estimate="false" lower="0" upper="0">626</weightvector>
     </operator>
-    <operator id="strictClockUpDownOperator.c:dummyname" spec="AdaptableOperatorSampler" weight="1.5">
-      <parameter idref="clockRate.c:dummyname"/>
-      <tree idref="Tree.t:dummyname"/>
-      <operator idref="AVMNOperator.dummyname"/>
-      <operator id="strictClockUpDownOperatorX.c:dummyname" spec="operator.kernel.BactrianUpDownOperator" scaleFactor="0.75" weight="3.0">
-        <up idref="clockRate.c:dummyname"/>
-        <down idref="Tree.t:dummyname"/>
-      </operator>
+    <operator id="ucldStdevScaler.c:dummyname" spec="ScaleOperator" parameter="@ucldStdev.c:dummyname" scaleFactor="0.5" weight="3.0"/>
+    <operator id="CategoriesRandomWalk.c:dummyname" spec="operator.IntRandomWalkOperator" parameter="@rateCategories.c:dummyname" weight="10.0" windowSize="1"/>
+    <operator id="CategoriesSwapOperator.c:dummyname" spec="operator.SwapOperator" intparameter="@rateCategories.c:dummyname" weight="10.0"/>
+    <operator id="CategoriesUniform.c:dummyname" spec="operator.UniformOperator" parameter="@rateCategories.c:dummyname" weight="10.0"/>
+    <operator id="ucldMeanScaler.c:dummyname" spec="ScaleOperator" parameter="@ucldMean.c:dummyname" scaleFactor="0.5" weight="1.0"/>
+    <operator id="relaxedUpDownOperator.c:dummyname" spec="operator.UpDownOperator" scaleFactor="0.75" weight="3.0">
+      <up idref="ucldMean.c:dummyname"/>
+      <down idref="Tree.t:dummyname"/>
     </operator>
     <operator id="originScalerFBD.t:dummyname" spec="ScaleOperator" parameter="@originFBD.t:dummyname" weight="3.0"/>
     <operator id="divRateScalerFBD.t:dummyname" spec="ScaleOperator" parameter="@diversificationRateFBD.t:dummyname" weight="10.0"/>
@@ -116,7 +121,10 @@
       <log idref="prior"/>
       <log idref="treeLikelihood.dummyname"/>
       <log id="TreeHeight.t:dummyname" spec="beast.base.evolution.tree.TreeStatLogger" tree="@Tree.t:dummyname"/>
-      <log idref="clockRate.c:dummyname"/>
+      <log idref="mutationRate.s:dummyname"/>
+      <log idref="ucldStdev.c:dummyname"/>
+      <log id="rate.c:dummyname" spec="beast.base.evolution.RateStatistic" branchratemodel="@RelaxedClock.c:dummyname" tree="@Tree.t:dummyname"/>
+      <log idref="ucldMean.c:dummyname"/>
       <log idref="FBD.t:dummyname"/>
       <log idref="diversificationRateFBD.t:dummyname"/>
       <log idref="turnoverFBD.t:dummyname"/>
@@ -130,7 +138,7 @@
       <log idref="prior"/>
     </logger>
     <logger id="treelog.t:dummyname" spec="Logger" fileName="$(filebase)-$(tree).trees" logEvery="1000" mode="tree">
-      <log id="TreeWithMetaDataLogger.t:dummyname" spec="beast.base.evolution.TreeWithMetaDataLogger" tree="@Tree.t:dummyname"/>
+      <log id="TreeWithMetaDataLogger.t:dummyname" spec="beast.base.evolution.TreeWithMetaDataLogger" branchratemodel="@RelaxedClock.c:dummyname" tree="@Tree.t:dummyname"/>
     </logger>
     <operatorschedule id="OperatorSchedule" spec="OperatorSchedule"/>
   </run>

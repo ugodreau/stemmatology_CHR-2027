@@ -1,0 +1,215 @@
+---
+title: "BI Diagnostics"
+author: "JB Camps"
+date: "2026-11-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r load}
+## Put your beast2 bin path here
+beast_bin_folder = "/home/jbcamps/Data/F/Stemmatologie/bayesian/beast/bin/"
+library("ape")
+library("phangorn")
+library(ggplot2)
+source("evaluate_tree.R")
+```
+
+
+## Diagnose logs
+
+```{r}
+source("fbd.R")
+#n = 99
+n = 10
+diag_table = NULL
+for(i in 0:n){
+    attempt <- tryCatch({
+    # Load data    
+    ### Data first
+    raw <- readLines(paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), warn = FALSE)
+    # and now clean the names to avoid issues with nexus reading
+    clean_raw <- gsub("ms\\_|[|]\\S*", "", raw)
+    tmp <- tempfile(fileext = ".nex")
+    writeLines(clean_raw, tmp)
+    data <- ape::read.nexus.data(tmp)
+    # Give ML the same exact data as BI
+    k   <- max(suppressWarnings(as.integer(unlist(data))), na.rm = TRUE) + 1
+    d_k <- phyDat(data, type = "USER", levels = 0:(k - 1), ambiguity = NA)
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
+    return(NULL)
+  })
+  # --- 2. Skip to next iteration if loading failed ---
+  if (is.null(attempt)) {
+    next
+  }
+    
+    diag_table = rbind(diag_table, bi_diagnostics(i, burnin = 0.1, d_k))
+}
+diag_table
+write.csv(diag_table, file = "diag_table.csv")
+```
+.
+```{r}
+boxplot(diag_table[,"ml_diff"], main = "ML log-likelihood - BI mean likelihood", sub=" (burnin 10%)")
+
+res = as.data.frame(diag_table)
+ggplot(data = res) +
+  geom_boxplot(aes(x = "ML LLk - BI mean Lk", y = ml_diff)) +
+  geom_boxplot(aes(x = "ML LLk - BI mean Lk (topo)", y = topology_cost)) +
+  geom_boxplot(aes(x = "BI mean Lk (topo) - BI mean Lk", y = branchlen_cost)) 
+  ylab("Likelihood differences") +
+  ggtitle("Topology vs branch length", subtitle =  "(local agreements/families)")
+```
+
+
+```{r}
+diag <- read.csv("diag_table.csv")[, -1]
+names(diag) <- c("tradition", "mean_lik", "ess_post", "ess_lik", "ess_height", "sa_count", "ML_diff")
+m <- merge(subset(results, method == "FBD_MCC"), diag, by = "tradition")
+m$mixed <- pmin(m$ess_post, m$ess_lik, m$ess_height) >= 200
+aggregate(cid ~ mixed, m, median)
+aggregate(cid ~ I(sa_count > 0.5), m, median)
+```
+
+
+
+
+
+```{r}
+plot(ape::read.tree(file="simulations_data/simulated_traditions_22_07/tree_56.newick"))
+```
+
+## FBD strict vs relaxed clock
+
+```{r}
+
+```
+
+
+## Our templates vs Beauti
+
+```{r}
+beast_bin <- paste(beast_bin_folder, "beast", sep="")
+for(i in (0)){
+  # Run our version
+  out = paste(
+    "comp_beast_vs_ourtemplate/ourtemplate/sequences_", i,
+    sep = "")
+
+  system2(
+    command = beast_bin, 
+    args = c(
+      "-overwrite -seed 42 -prefix",
+      "comp_beast_vs_ourtemplate/ourtemplate/", 
+      paste("comp_beast_vs_ourtemplate/ourtemplate/sequences_", i, ".xml", sep="")
+      ), 
+    stdout = paste(out, ".txt", sep=""), stderr = paste(out, ".txt", sep="")
+    )
+  
+  treeannotator_bin <- paste(beast_bin_folder, "treeannotator", sep="")
+  tree_file <- paste(out, ".trees", sep="")
+  
+  system2(command = treeannotator_bin, 
+          args = c("-burnin 10 -height median", tree_file, "mcc_tree.tree"),
+          stdout = FALSE)
+  # Read the MCC tree with annotations preserved
+  mcc_tree <- read.nexus("mcc_tree.tree")
+  
+  # Run Beauti version
+  out = paste(
+    "comp_beast_vs_ourtemplate/beauti_gen/sequences_", i,
+    sep = "")
+
+  system2(
+    command = beast_bin, 
+    args = c(
+      "-overwrite -seed 42 -prefix",
+      "comp_beast_vs_ourtemplate/beauti_gen/", 
+      paste("comp_beast_vs_ourtemplate/beauti_gen/sequences_", i, ".xml", sep="")
+      ), 
+    stdout = paste(out, ".txt", sep=""), stderr = paste(out, ".txt", sep="")
+    )
+  
+  treeannotator_bin <- paste(beast_bin_folder, "treeannotator", sep="")
+  tree_file <- paste(out, ".trees", sep="")
+  
+  system2(command = treeannotator_bin, 
+          args = c("-burnin 10 -height median", tree_file, "mcc_tree.tree"),
+          stdout = FALSE)
+  # Read the MCC tree with annotations preserved
+  mcc_tree <- read.nexus("mcc_tree.tree")
+  
+}
+
+```
+
+
+```{r}
+# Hand compare
+plot(ape::read.tree(file="simulations_data/simulated_traditions_22_07/tree_0.newick"))
+plot(mcc_tree)
+```
+
+
+
+
+## Check failures SOLVED
+
+```{r benchmark_pestimate, echo=FALSE}
+failures = c(8, 10, 16, 20)
+#n = 99
+#n = 20
+#for(i in 0:n){
+for(i in failures){
+  attempt <- tryCatch({
+    raw <- readLines(paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), warn = FALSE)
+    matches <- regmatches(raw, regexec("ms_([0-9]+)\\|([0-9]+)", raw))
+    matched_matrix <- do.call(rbind, lapply(matches, function(x) if(length(x) == 3) x[2:3] else NULL))
+    dates_vector <- setNames(as.numeric(matched_matrix[,2]), matched_matrix[,1])
+    clean_raw <- gsub("ms\\_|[|]\\S*", "", raw)
+    tmp <- tempfile(fileext = ".nex")
+    writeLines(clean_raw, tmp)
+    data <- ape::read.nexus.data(tmp)
+    unlink(tmp)
+    data = phyDat(data, type = "USER", levels = 0:10, ambiguity=NA)
+    gt_raw = readLines(con = paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""), warn = FALSE)
+    gt <- convert_gt_internal_nodes(gt_raw)
+  }, error = function(e) {
+    message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
+    return(NULL)
+  })
+  # --- 2. Skip to next iteration if loading failed ---
+  if (is.null(attempt)) {
+    next
+  }
+  # Perform analyses
+
+  BI = fbd(data,
+           dates_vector,
+           nj_init = FALSE,
+           template_file =
+             #"beast_templates/BDSKY_serial.xml",
+             "beast_templates/FBD_NJinit_serial.xml",
+           out = 
+             paste("rbeast_out/", "sequences_", i, sep=""),
+           chain_length=1000000, 
+           bin_folder = beast_bin_folder)
+  
+  if(!is.null(BI)){
+    # save objects to disk
+    write.tree(BI$mrc_tree, file=paste("rbeast_out/mrc_", i, ".tree", sep=""))
+    write.tree(BI$mcc_tree, file=paste("rbeast_out/mcc_", i, ".tree", sep=""))
+  }
+  # save objects to disk
+  write.tree(fit_opt$tree, file=paste("ml_out/", i, ".tree", sep=""))
+  
+}
+```

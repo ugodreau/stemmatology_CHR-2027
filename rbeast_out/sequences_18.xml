@@ -21,28 +21,27 @@
   <map name="prior">beast.base.inference.distribution.Prior</map>
   <map name="InverseGamma">beast.base.inference.distribution.InverseGamma</map>
   <map name="OneOnX">beast.base.inference.distribution.OneOnX</map>
-  <run id="mcmc" spec="MCMC" chainLength="1e+06" numInitializationAttempts="1000">
+  <run id="mcmc" spec="MCMC" chainLength="1000000" numInitializationAttempts="1000">
     <state id="state" spec="State" storeEvery="5000">
       <tree id="Tree.t:dummyname" spec="beast.base.evolution.tree.Tree" name="stateNode">
-        <trait id="dateTrait.t:dummyname" spec="beast.base.evolution.tree.TraitSet" traitname="date" value="158=53,176=47,218=33,293=15,339=8,346=6,376=2,393=0">
+        <trait id="dateTrait.t:dummyname" spec="beast.base.evolution.tree.TraitSet" traitname="date-backward" value="158=53,176=47,218=33,293=15,339=8,346=6,376=2,393=0">
           <taxa id="TaxonSet.dummyname" spec="TaxonSet">
             <alignment idref="dummyname"/>
           </taxa>
         </trait>
         <taxonset idref="TaxonSet.dummyname"/>
       </tree>
-      <parameter id="clockRate.c:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
-      <parameter id="diversificationRateFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
-      <parameter id="turnoverFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="1.0">0.5</parameter>
-      <parameter id="samplingProportionFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="1.0">0.5</parameter>
-      <parameter id="originFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">153</parameter>
+      <parameter id="clockRate.c:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">0.002</parameter>
+      <parameter id="diversificationRateFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">0.02</parameter>
+      <parameter id="turnoverFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="1.0">0.45</parameter>
+      <parameter id="samplingProportionFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode" upper="1.0">0.05</parameter>
+      <parameter id="originFBD.t:dummyname" spec="parameter.RealParameter" lower="0.0" name="stateNode">103</parameter>
     </state>
     <init id="RandomTree.t:dummyname" spec="RandomTree" estimate="false" initial="@Tree.t:dummyname" taxa="@dummyname">
       <populationModel id="ConstantPopulation0.t:dummyname" spec="ConstantPopulation">
         <parameter id="randomPopSize.t:dummyname" spec="parameter.RealParameter" name="popSize">1.0</parameter>
       </populationModel>
     </init>
-    <init id="NJTree.t:dummyname" spec="beast.base.evolution.tree.ClusterTree" clusterType="neighborjoining2" estimate="false" initial="@Tree.t:dummyname" taxa="@dummyname"/>
     <distribution id="posterior" spec="CompoundDistribution">
       <distribution id="prior" spec="CompoundDistribution">
         <distribution id="FBD.t:dummyname" spec="sa.evolution.speciation.SABirthDeathModel" conditionOnRhoSampling="true" diversificationRate="@diversificationRateFBD.t:dummyname" origin="@originFBD.t:dummyname" samplingProportion="@samplingProportionFBD.t:dummyname" tree="@Tree.t:dummyname" turnover="@turnoverFBD.t:dummyname">
@@ -56,7 +55,7 @@
           <Uniform id="Uniform.4" name="distr" upper="Infinity"/>
         </prior>
         <prior id="originPriorFBD.t:dummyname" name="distribution" x="@originFBD.t:dummyname">
-          <Uniform id="Uniform.3" name="distr" upper="Infinity"/>
+          <Uniform id="Uniform.3" name="distr" upper="303" lower="53"/>
         </prior>
         <prior id="samplingProportionPriorFBD.t:dummyname" name="distribution" x="@samplingProportionFBD.t:dummyname">
           <Uniform id="Uniform.6" name="distr"/>

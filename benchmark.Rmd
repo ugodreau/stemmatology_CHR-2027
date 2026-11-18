@@ -26,6 +26,7 @@ source("evaluate_tree.R")
 # Benchmark point estimates
 
 ```{r benchmark_pestimate, echo=FALSE}
+source("fbd.R")
 results = NULL
 n = 99
 #n = 5
@@ -78,7 +79,11 @@ for(i in 0:n){
     #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
     control = pml.control(trace = 0)
   )
-  # And now bayesian FBD-based analysis
+  #if(i < 79){
+  #  BI_mcc = ape::read.tree(file = paste("rbeast_out/mcc_", i, ".tree",  sep=""))
+  #  BI = NULL
+  #} else {
+    # And now bayesian FBD-based analysis
   BI = fbd(data,
            dates_vector,
            nj_init = FALSE,
@@ -90,6 +95,8 @@ for(i in 0:n){
              paste("rbeast_out/", "sequences_", i, sep=""),
            chain_length=10000000, 
            bin_folder = beast_bin_folder)
+  #BI_mcc = BI$mcc_tree
+  #}
   
   ## Now score everything
   preds <- list(NJ       = treeNJ,
@@ -97,7 +104,7 @@ for(i in 0:n){
                 MP_SC    = ape::consensus(mm_tree, p = 1),
                 #MP_mean     = mm_tree,
                 ML        = fit_opt$tree,
-                FBD_MCC   = BI$mcc_tree#,
+                FBD_MCC   = BI$mcc_tree#BI_mcc##,
                 #FBD_MRC   = BI$mrc_tree
   )
   # And now results

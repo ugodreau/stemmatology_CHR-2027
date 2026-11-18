@@ -98,10 +98,11 @@ name="alignment">
                 </distribution>
             </distribution>
         </distribution>
-        <operator id="FixMeanMutationRatesOperator" spec="operator.kernel.BactrianDeltaExchangeOperator" delta="0.75" weight="2.0">
+        <!-- TODO: this might need to be removed, as it is redundant with the uncorrelated clock rates (and non identificable) -->
+        <!--<operator id="FixMeanMutationRatesOperator" spec="operator.kernel.BactrianDeltaExchangeOperator" delta="0.75" weight="2.0">
             <parameter idref="mutationRate.s:dummyname"/>
             <weightvector id="weightparameter" spec="parameter.IntegerParameter" estimate="false" lower="0" upper="0">626</weightvector>
-        </operator>
+        </operator>-->
         <operator id="ucldStdevScaler.c:dummyname" spec="ScaleOperator" parameter="@ucldStdev.c:dummyname" scaleFactor="0.5" weight="3.0"/>
         <operator id="CategoriesRandomWalk.c:dummyname" spec="operator.IntRandomWalkOperator" parameter="@rateCategories.c:dummyname" weight="10.0" windowSize="1"/>
         <operator id="CategoriesSwapOperator.c:dummyname" spec="operator.SwapOperator" intparameter="@rateCategories.c:dummyname" weight="10.0"/>

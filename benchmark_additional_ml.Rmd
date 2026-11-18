@@ -1,0 +1,375 @@
+---
+title: "Additional benchmarks for main methods variants: Maximum Likelihood"
+author: "JB Camps"
+date: "2026-11-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load}
+library("ape")
+library("phangorn")
+source("convert_gt_internal_to_zero.R")
+source("clean_phydat_attributes.R")
+library(ggplot2)
+source("evaluate_tree.R")
+```
+
+# Maximum likelihood 
+
+Testing different search algorithms (NNI, Stochastic, Ratchet) and exhaustive search or bootstrapping.
+
+
+```{r benchmark_pestimate, echo=FALSE}
+source("ml.R")
+results_ml = NULL
+n = 99
+#n = 5
+#pb = txtProgressBar(min = 0, max = n, style = 3)
+for(i in 0:n){
+  setTxtProgressBar(pb, i)
+  attempt <- tryCatch({
+    raw <- readLines(paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), warn = FALSE)
+    # and now clean the names to avoid issues with nexus reading
+    clean_raw <- gsub("ms\\_|[|]\\S*", "", raw)
+    tmp <- tempfile(fileext = ".nex")
+    writeLines(clean_raw, tmp)
+    data <- ape::read.nexus.data(tmp)
+    unlink(tmp)
+    data = phyDat(data, type = "USER", levels = 0:10, ambiguity=NA)
+    ### Then GT, without forgetting the 0-length edge conversion
+    gt_raw = readLines(con = paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""), warn = FALSE)
+    gt <- convert_gt_internal_nodes(gt_raw)
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
+    return(NULL)
+  })
+  
+  # --- 2. Skip to next iteration if loading failed ---
+  if (is.null(attempt)) {
+    next
+  }
+  # Perform analyses
+  dm <- dist.hamming(data)
+  mm_start <- NJ(dm)
+  ## Maximum likelihood PE with NNI
+  fit_mk <- pml(mm_start, data = data)
+  fit_opt <- optim.pml(
+    fit_mk, 
+    optNni = TRUE,      # Optimize topology via NNI
+    optEdge = TRUE,     # Optimize branch lengths
+    #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+    control = pml.control(trace = 0)
+  )
+  ## 1.2 Maximum likelihood with stochastic rearrangement (no BS)
+  ## -> actually improves
+  fit_mk <- pml(mm_start, data = data)
+  fit_opt_stoch <- optim.pml(
+    fit_mk, 
+    rearrangement = "stochastic", # Replaces deterministic optNni = TRUE
+    optEdge = TRUE,     # Optimize branch lengths
+    #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+    control = pml.control(trace = 0)
+  )
+  
+  ## 1.3 Maximum likelihood with Ratchet (no BS)
+  fit_opt_ratch <- NULL # Initialize globally so Step 2.3 doesn't crash if 1.3 fails
+  
+  attempt <- tryCatch({
+    fit_mk <- pml(mm_start, data = data)
+    fit_opt_ratch <- optim.pml(
+      fit_mk, 
+      rearrangement = "ratchet", 
+      optEdge = TRUE,     # Optimize branch lengths
+      #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+      control = pml.control(
+        trace = 0,
+        tau = 1e-6 # FIXED: Active to prevent zero-length edge collapse
+      )
+    )
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Error in ML Ratchet optimization due to error: %s", e$message))
+  })
+  ## 1.4 Exhaustive search
+  ml_ex <- exhaustive_ml(data, ncores = 4, screen_k = 300, extra_trees = list(fit_opt$tree))
+
+  ## Now score everything
+  preds <- list(ML_NNI        = fit_opt$tree,
+                ML_Stoch      = fit_opt_stoch$tree,
+                ML_Ratch      = fit_opt_ratch$tree,
+                ML_exhaust    = if (ml_ex$n_tied > 1) ape::consensus(ml_ex$tied_trees, p = 1) else ml_ex$best_tree
+  )
+  # And now results
+  results_ml <- rbind(results_ml, score_methods(preds, gt, tradition = i))
+  
+  # save objects to disk
+  #write.tree(fit_opt$tree, file=paste("ml_out/", i, ".tree", sep=""))
+  
+}
+```
+
+```{r}
+plot_metric_boxplots(results_ml, "cid", ylab = "gRF  dissimilarity", title = "Unrooted PE trees gRF distance to GT", methods = default_methods)
+```
+
+
+
+
+Create the results matrix
+
+```{r}
+results_quartet = matrix(nrow = 100, 
+                 ncol = 8, 
+                 data = numeric(),
+                 dimnames = list(
+  paste("Tree_", 0:99),
+  c("NJ", "MP_SC", "ML_NNI", "ML_Stoch", "ML_Ratch",
+    "ML_NNI_BS", "ML_Stoch_BS", "ML_Ratch_BS")
+))
+results_grf = matrix(nrow = 100, 
+                 ncol = 8, 
+                 data = numeric(),
+                 dimnames = list(
+  paste("Tree_", 0:99),
+   c("NJ", "MP_SC", "ML_NNI", "ML_Stoch", "ML_Ratch",
+    "ML_NNI_BS", "ML_Stoch_BS", "ML_Ratch_BS")
+))
+```
+
+
+```{r, echo=FALSE}
+n = 99
+pb = txtProgressBar(min = 0, max = n, style = 3)
+for(i in 0:n){
+  setTxtProgressBar(pb, i)
+  attempt <- tryCatch({
+    # Load data and gt tree
+    ## load, clean, write, read each nexus file
+    ### Data first
+    raw <- readLines(paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), warn = FALSE)
+    # create the dates vector for bayesian methods
+    matches <- regmatches(raw, regexec("ms_([0-9]+)\\|([0-9]+)", raw))
+    matched_matrix <- do.call(rbind, lapply(matches, function(x) if(length(x) == 3) x[2:3] else NULL))
+    # Create a lookup vector: c("305" = 246, "108" = 120, ...)
+    dates_vector <- setNames(as.numeric(matched_matrix[,2]), matched_matrix[,1])
+    # and now clean the names to avoid issues with nexus reading
+    clean_raw <- gsub("ms\\_|[|]\\S*", "", raw)
+    tmp <- tempfile(fileext = ".nex")
+    writeLines(clean_raw, tmp)
+    data <- ape::read.nexus.data(tmp)
+    unlink(tmp)
+    data = phyDat(data, type = "USER", levels = 0:10, ambiguity=NA)
+    ### Then GT, without forgetting the 0-length edge conversion
+    gt_raw = readLines(con = paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""), warn = FALSE)
+    gt <- convert_gt_internal_nodes(gt_raw)
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
+    return(NULL)
+  })
+  
+  # --- 2. Skip to next iteration if loading failed ---
+  if (is.null(attempt)) {
+    next
+  }
+  # Perform analyses
+  dm <- dist.hamming(data)
+  treeNJ<- NJ(dm)
+  mm_start <- treeNJ
+  # Applying the pratchet method for maximum parsimony
+  # Default, fitch + SPR
+  mm_tree <- pratchet(data, start = mm_start, minit = 10, maxit = 10000, all = TRUE, trace = 0, method = "fitch", rearrangements = "SPR", perturbation = "ratchet")
+  ################################
+  ###### MAXIMUM LIKELIHOOD ######
+  ################################
+  ##### 1. FIRST, NO BOOTSTRAP ######
+  
+  ## 1.1 Maximum likelihood NNI (no BS)
+  fit_mk <- pml(treeNJ, data = data)
+  fit_opt_NNI <- optim.pml(
+    fit_mk, 
+    optNni = TRUE,      # Optimize topology via NNI
+    optEdge = TRUE,     # Optimize branch lengths
+    #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+    control = pml.control(trace = 0)
+  )
+  
+  ## 1.2 Maximum likelihood with stochastic rearrangement (no BS)
+  ## -> actually improves
+  fit_mk <- pml(treeNJ, data = data)
+  fit_opt_stoch <- optim.pml(
+    fit_mk, 
+    rearrangement = "stochastic", # Replaces deterministic optNni = TRUE
+    optEdge = TRUE,     # Optimize branch lengths
+    #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+    control = pml.control(trace = 0)
+  )
+  
+  ## 1.3 Maximum likelihood with Ratchet (no BS)
+  fit_opt_ratch <- NULL # Initialize globally so Step 2.3 doesn't crash if 1.3 fails
+  
+  attempt <- tryCatch({
+    fit_mk <- pml(treeNJ, data = data)
+    fit_opt_ratch <- optim.pml(
+      fit_mk, 
+      rearrangement = "ratchet", 
+      optEdge = TRUE,     # Optimize branch lengths
+      #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+      control = pml.control(
+        trace = 0,
+        tau = 1e-6 # FIXED: Active to prevent zero-length edge collapse
+      )
+    )
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Error in ML Ratchet optimization due to error: %s", e$message))
+  })
+  
+  ##### 2. WITH BOOTSTRAP ######
+  
+  ## 2.1 Maximum likelihood (NNI, but with bootstrap)
+  # FIXED: Changed input from fit_opt to fit_opt_NNI
+  bs_trees_nni <- bootstrap.pml(
+    fit_opt_NNI, 
+    bs = 1000, 
+    multicore = TRUE,
+    optNni = TRUE
+  )
+  fit_opt_NNIBS = ape::consensus(bs_trees_nni, p = 0.5)
+  
+  ### 2.2 Stochastic with BS
+  bs_trees_stoch <- bootstrap.pml(
+    fit_opt_stoch, 
+    bs = 100, 
+    multicore = TRUE, 
+    rearrangement = "stochastic",
+    control = pml.control(maxit = 5, trace = 0) # Caps the optimization loops per pseudo-replicate
+  )
+  fit_opt_stochbs = ape::consensus(bs_trees_stoch, p = 0.5)
+  
+  ### 2.3 Ratchet with BS
+  # FIXED: Wrapped in an if-statement to handle potential tryCatch failures from 1.3 safely
+  if (!is.null(fit_opt_ratch)) {
+    bs_trees_ratchet <- bootstrap.pml(
+      fit_opt_ratch, 
+      bs = 100, 
+      multicore = TRUE, 
+      rearrangement = "ratchet",
+      ratchet.par = list(iter = 5L, maxit = 10L), # Keeps the ratchet brief per pseudo-replicate
+      control = pml.control(trace = 0, tau = 1e-6) # FIXED: Added tau to safeguard the bootstrap loop
+    )
+    fit_opt_ratchetbs = ape::consensus(bs_trees_ratchet, p = 0.5)
+  } else {
+    fit_opt_ratchetbs = NULL
+    message("Skipped Ratchet Bootstrap because initial optimization failed.")
+  }
+  
+  ## Maximum likelihood - gamma rate + stochastic
+  ## -> does not improve over stochastic
+  # fit_mk <- pml(treeNJ, data = data, k = 4)
+  # fit_opt_y <- optim.pml(
+  #   fit_mk, 
+  #   rearrangement = "stochastic", # Replaces deterministic optNni = TRUE
+  #   optEdge = TRUE,     # Optimize branch lengths
+  #   optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+  #   control = pml.control(trace = 0)
+  # )
+  ## Maximum likelihood -- Estimate State Frequencies, optBF
+  # ## -> seems to degrade perf
+  # fit_mk <- pml(treeNJ, data = data)
+  # fit_opt_y <- optim.pml(
+  #   fit_mk, 
+  #   optNni = TRUE,      # Optimize topology via NNI
+  #   optEdge = TRUE,     # Optimize branch lengths
+  #   #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+  #   optBf = TRUE,
+  #   control = pml.control(trace = 0)
+  # )
+  ## Maximum likelihood -- Ascertainment Bias Correction (+ASC) 
+  ## -> seem to worsen the scores
+  # fit_mk <- pml(treeNJ, data = data, ASC = TRUE)
+  # fit_opt_y <- optim.pml(
+  #   fit_mk, 
+  #   optNni = TRUE,      # Optimize topology via NNI
+  #   optEdge = TRUE,     # Optimize branch lengths
+  #   control = pml.control(trace = 0)
+  # )
+  ## Maximum likelihood -- asymetric transision rates
+  ## -> seems to degrade perf too
+  # fit_mk <- pml(treeNJ, data = data)
+  # fit_opt_z <- optim.pml(
+  #   fit_mk, 
+  #   optNni = TRUE,      # Optimize topology via NNI
+  #   optEdge = TRUE,     # Optimize branch lengths
+  #   #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+  #   optQ = TRUE,
+  #   control = pml.control(trace = 0)
+  # )
+  ## Maximu likelihood -- free rate + stochastic
+  ## -> does not improve over stochastic
+  # fit_mk <- pml(treeNJ, data = data, k = 4, site.rate = "free_rate")
+  # fit_opt_z <- optim.pml(
+  #   fit_mk, 
+  #   #optNni = TRUE,      # Optimize topology via NNI
+  #   rearrangement = "stochastic", # Replaces deterministic optNni = TRUE
+  #   optEdge = TRUE,     # Optimize branch lengths
+  #   optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+  #   control = pml.control(trace = 0)
+  # )
+  
+  results_quartet[i+1, "NJ"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(gt, treeNJ, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "MP_SC"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(consensus(mm_tree, p = 1), cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML_NNI"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt_NNI$tree, cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML_Stoch"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt_stoch$tree, cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML_Ratch"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt_ratch$tree, cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML_NNI_BS"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt_NNIBS, cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML_Stoch_BS"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt_stochbs, cf=gt, nTip = TRUE), similarity = FALSE)
+  results_quartet[i+1, "ML_Ratch_BS"] <- Quartet::QuartetDivergence(Quartet::QuartetStatus(fit_opt_ratchetbs, cf=gt, nTip = TRUE), similarity = FALSE)
+
+  results_grf[i+1, "NJ"] <- TreeDist::TreeDistance(gt, treeNJ)
+  results_grf[i+1, "MP_SC"] <- TreeDist::TreeDistance(consensus(mm_tree, p = 1), gt)
+  results_grf[i+1, "ML_NNI"] <- mean(TreeDist::TreeDistance(fit_opt_NNI$tree, gt))
+  results_grf[i+1, "ML_Stoch"] <- mean(TreeDist::TreeDistance(fit_opt_stoch$tree, gt))
+  results_grf[i+1, "ML_Ratch"] <- mean(TreeDist::TreeDistance(fit_opt_ratch$tree, gt))
+  results_grf[i+1, "ML_NNI_BS"] <- TreeDist::TreeDistance(fit_opt_NNIBS, gt)
+  results_grf[i+1, "ML_Stoch_BS"] <- TreeDist::TreeDistance(fit_opt_stochbs, gt)
+  results_grf[i+1, "ML_Ratch_BS"] <- TreeDist::TreeDistance(fit_opt_ratchetbs, gt)
+}
+```
+
+```{r}
+res = as.data.frame(results_quartet)
+ggplot(data = res) +
+  geom_boxplot(aes(x = "NJ", y = NJ)) +
+  geom_boxplot(aes(x = "MP (SC)", y = MP_SC)) +
+  geom_boxplot(aes(x = "ML", y = ML)) +
+  geom_boxplot(aes(x = "ML NNI", y = ML)) +
+  geom_boxplot(aes(x = "ML stochastic", y = ML_x)) +
+  geom_boxplot(aes(x = "ML ratchet", y = ML_y)) +
+  geom_boxplot(aes(x = "ML BS-NNI 50%MRC", y = ML_z)) +
+  xlab("Method") +
+  ylab("Quartet distance") +
+  ggtitle("ML algorithms and BS benchmark", subtitle =  "Unrooted trees quartet distance to GT")
+```
+
+```{r}
+res = as.data.frame(results_grf)
+ggplot(data = res) +
+  geom_boxplot(aes(x = "NJ", y = NJ)) +
+  geom_boxplot(aes(x = "MP (SC)", y = MP_SC)) +
+  geom_boxplot(aes(x = "ML NNI", y = ML)) +
+  geom_boxplot(aes(x = "ML stochastic", y = ML_x)) +
+  geom_boxplot(aes(x = "ML ratchet", y = ML_y)) +
+  geom_boxplot(aes(x = "ML BS-NNI 50%MRC", y = ML_z)) +
+  xlab("Method") +
+  ylab("gRF dissimilarity") +
+  ggtitle("ML algorithms and BS benchmark", sub="Unrooted trees gRF distance to GT")
+```
+
+
+

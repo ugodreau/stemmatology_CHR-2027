@@ -18,6 +18,8 @@ library("ape")
 library("phangorn")
 library(ggplot2)
 source("evaluate_tree.R")
+source("fbd.R")
+source("convert_gt_internal_to_zero.R")
 ```
 
 
@@ -25,8 +27,8 @@ source("evaluate_tree.R")
 
 ```{r}
 source("fbd.R")
-#n = 99
-n = 10
+n = 99
+#n = 5
 diag_table = NULL
 for(i in 0:n){
     attempt <- tryCatch({
@@ -63,16 +65,16 @@ boxplot(diag_table[,"ml_diff"], main = "ML log-likelihood - BI mean likelihood",
 res = as.data.frame(diag_table)
 ggplot(data = res) +
   geom_boxplot(aes(x = "ML LLk - BI mean Lk", y = ml_diff)) +
-  geom_boxplot(aes(x = "ML LLk - BI mean Lk (topo)", y = topology_cost)) +
-  geom_boxplot(aes(x = "BI mean Lk (topo) - BI mean Lk", y = branchlen_cost)) 
+  geom_boxplot(aes(x = "Topology\n (ML LLk - BI mean topo Lk)", y = topology_cost)) +
+  geom_boxplot(aes(x = "Branch length\n (BI mean topo Lk - BI mean Lk)", y = branchlen_cost)) +
   ylab("Likelihood differences") +
-  ggtitle("Topology vs branch length", subtitle =  "(local agreements/families)")
+  ggtitle("Topology vs branch length")
 ```
 
 
 ```{r}
 diag <- read.csv("diag_table.csv")[, -1]
-names(diag) <- c("tradition", "mean_lik", "ess_post", "ess_lik", "ess_height", "sa_count", "ML_diff")
+#names(diag) <- c("tradition", "mean_lik", "ess_post", "ess_lik", "ess_height", "sa_count", "ML_diff")
 m <- merge(subset(results, method == "FBD_MCC"), diag, by = "tradition")
 m$mixed <- pmin(m$ess_post, m$ess_lik, m$ess_height) >= 200
 aggregate(cid ~ mixed, m, median)
@@ -87,10 +89,40 @@ aggregate(cid ~ I(sa_count > 0.5), m, median)
 plot(ape::read.tree(file="simulations_data/simulated_traditions_22_07/tree_56.newick"))
 ```
 
+SD post
+```{r}
+sd_post <- sapply(0:99, function(i) {
+  lg <- read.table(sprintf("rbeast_out/sequences_%d.log", i), header = TRUE, comment.char = "#")
+  mean(lg$ucldStdev[-seq_len(floor(0.1 * nrow(lg)))])   # adapt the column name
+})
+mean(sd_post > 0.77)
+summary(sd_post)
+```
+
+
+
 ## FBD strict vs relaxed clock
 
 ```{r}
-
+results_comp = NULL
+n = 99
+for(i in 0:n){
+  # Load gt
+  gt_raw = readLines(con = paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""), warn = FALSE)
+  gt <- convert_gt_internal_nodes(gt_raw)
+  # Load ml tree
+  ml = read.tree(file=paste("ml_out/", i, ".tree", sep=""))
+  # Load bi mcc tree
+  bi = read.tree(file=paste("rbeast_out/mcc_", i, ".tree", sep=""))
+  bi_mrc = read.tree(paste0("rbeast_out/mrc_", i, ".tree"))
+  ## Now score everything
+  preds <- list(ML        = ml,
+                FBD_MCC   = bi,
+                FBD_MRC   = bi_mrc
+  )
+  # And now results
+  results_comp <- rbind(results_comp, score_methods(preds, gt, tradition = i))
+}
 ```
 
 

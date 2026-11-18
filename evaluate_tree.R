@@ -180,6 +180,13 @@ default_methods <- c(
   MP_SC     = "MP (SC)",
   MP_IW_SC  = "MP (IW, SC)",
   ML        = "ML",
+  ML_NNI        = "ML (NNI)",
+  ML_Stoch      = "ML (Stoch. rearr.)",
+  ML_Ratch      = "ML (Ratchet)",
+  ML_exhaust    = "ML (exhaustive)",
+  EW_pratchet       = "MP EW (pratchet)",
+  EW_bab            = "MP EW (bab)",
+  EW_enum           = "MP EW (enum)",
   FBD_MCC   = "FBD (MCC)",
   FBD_MRC   = "FBD (MRC)"
   # , FBD   = "BDSky"

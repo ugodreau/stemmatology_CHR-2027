@@ -65,17 +65,20 @@ consensus_set <- function(trees) {
 ## k = Inf gives equal weights with the same engine, which is the right control.
 ## delta > 0 keeps slightly suboptimal trees (score within delta of the best).
 ## Check ?TreeSearch::TreeLength: here a LOWER score is assumed to be better.
-iw_enumerate <- function(data, k, trees = all_topologies(data), delta = 0) {
-  rooted = ape::root(trees, outgroup=1, resolve.root=TRUE)
-  sc  <- vapply(rooted, TreeSearch::TreeLength, numeric(1), dataset = data, concavity = k)
+iw_enumerate <- function(data, k, 
+                         trees = TreeTools::RootTree(all_topologies(data), 1), 
+                         delta = 0) {
+  sc <- TreeSearch::TreeLength(trees, dataset = data, concavity = k)
   out <- trees[sc <= min(sc) + delta + 1e-9]
   attr(out, "score") <- min(sc)
   out
 }
 
 ## Sweep over concavity constants, all on the same enumerated topologies
-mpt_sweep <- function(data, k_grid = c(2, 3, 5, 10, 20, Inf), delta = 0) {
-  trees <- all_topologies(data)
+mpt_sweep <- function(data, 
+                      trees=TreeTools::RootTree(all_topologies(data), 1),
+                      k_grid = c(2, 3, 5, 10, 20, Inf), 
+                      delta = 0) {
   res <- lapply(k_grid, function(k) iw_enumerate(data, k, trees, delta))
   setNames(res, paste0("k", k_grid))
 }

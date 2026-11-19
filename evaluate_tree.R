@@ -117,27 +117,56 @@ paired_diff <- function(df, metric, a, b) {
 }
 
 
+## plot_accuracy_resolution.R
+## Accuracy (y) vs resolution (x) per method, with labelled iso-recall curves.
+## Uses `default_methods` (method code -> display label, in display order) from plot_boxplots.R,
+## so legend labels and order match the boxplots. Requires ggplot2.
+##
+## df: long data frame from score_methods() (columns: method, resolution, accuracy,
+##     and optionally threshold, in which case medians are joined into one path per method).
+## methods: named character vector, code -> label. Codes in df that are not in `methods`
+##     (for example "ML_BS") are kept under their own name, after the known ones.
 
-## ---- Accuracy (y) vs resolution (x), with iso-recall curves -----------------
-## df: output of score_methods(); if it has a `threshold` column, medians are
-## joined into one path per method (e.g. bootstrap consensus thresholds).
-plot_accuracy_resolution <- function(df, recall_levels = c(.2, .4, .6, .8)) {
+plot_accuracy_resolution <- function(df, methods = default_methods,
+                                     recall_levels = c(.2, .4, .6, .8)) {
+  df <- as.data.frame(df)
+  
+  ## Method codes -> display labels, in the order of `methods`
+  present <- unique(as.character(df$method))
+  known   <- names(methods)[names(methods) %in% present]
+  extra   <- setdiff(present, names(methods))
+  df$method <- factor(as.character(df$method),
+                      levels = c(known, extra),
+                      labels = c(unname(methods[known]), extra))
+  
   xmax <- max(1.5, max(df$resolution, na.rm = TRUE))
+  
+  ## Iso-recall curves: recall = accuracy * resolution, so accuracy = recall / resolution
   iso <- do.call(rbind, lapply(recall_levels, function(r) {
     res <- seq(r, xmax, length.out = 200)          # accuracy <= 1 requires resolution >= recall
     data.frame(recall = r, resolution = res, accuracy = r / res)
   }))
+  ## One label per curve, placed at the right-hand end of the curve
+  iso_lab <- data.frame(recall = recall_levels,
+                        resolution = xmax,
+                        accuracy = recall_levels / xmax,
+                        label = paste0("recall = ", recall_levels))
+  
   med <- aggregate(cbind(resolution, accuracy) ~ method, data = df, FUN = median)
   
   p <- ggplot2::ggplot(df, ggplot2::aes(x = resolution, y = accuracy, colour = method)) +
     ggplot2::geom_line(data = iso, ggplot2::aes(x = resolution, y = accuracy, group = recall),
                        colour = "grey80", inherit.aes = FALSE) +
+    ggplot2::geom_text(data = iso_lab,
+                       ggplot2::aes(x = resolution, y = accuracy, label = label),
+                       colour = "grey50", size = 3, hjust = 1, vjust = -0.4,
+                       inherit.aes = FALSE) +
     ggplot2::geom_point(alpha = .15, na.rm = TRUE) +
     ggplot2::stat_ellipse(level = .5, na.rm = TRUE) +
     ggplot2::geom_point(data = med, size = 3) +     # 2D medians per method
     ggplot2::geom_vline(xintercept = 1, linetype = "dashed") +
     ggplot2::coord_cartesian(ylim = c(0, 1)) +
-    ggplot2::labs(x = "Resolution (Hp / Hg)", y = "Accuracy (M / Hp)")
+    ggplot2::labs(x = "Resolution (Hp / Hg)", y = "Accuracy (M / Hp)", colour = "Method")
   
   if ("threshold" %in% names(df)) {
     path <- aggregate(cbind(resolution, accuracy) ~ method + threshold, data = df, FUN = median)
@@ -148,6 +177,17 @@ plot_accuracy_resolution <- function(df, recall_levels = c(.2, .4, .6, .8)) {
   }
   p
 }
+
+## ---- Examples --------------------------------------------------------------------------------
+## plot_accuracy_resolution(results)                       # point estimates, default labels
+##
+## bs_methods <- c(NJ_BS = "NJ (BS)", UNJ_BS = "UNJ (BS)", MP_BS = "MP (BS)",
+##                 ML_BS = "ML (BS)", FBD_MRC = "FBD (MRC)")
+## plot_accuracy_resolution(results_bs, methods = bs_methods)
+##
+## # to add codes to the defaults:
+## plot_accuracy_resolution(results_bs, methods = c(default_methods, ML_BS = "ML (BS)"))
+
 
 ## ---- Example of use inside the simulation loop ------------------------------
 ## results <- NULL
@@ -177,18 +217,22 @@ default_methods <- c(
   MP_BS     = "MP",
   ML_BS     = "ML",
   MP_mean   = "MP (mean)",
-  MP_SC     = "MP (SC)",
-  MP_IW_SC  = "MP (IW, SC)",
+  MP_SC     = "MPEW",
+  MP_IW_SC  = "MPIW",
+  EW_pratchet       = "MPEW (pratchet)",
+  EW_bab            = "MPEW (bab)",
+  EW_enum          = "MPEW (enum)",
+  IW_k2   = "MPIW(k=2)",
+  IW_k3   = "MPIW(k=3)",
+  IW_k10  = "MPIW(k=10)",
+  IW_k20  = "MPIW(k=20)",
   ML        = "ML",
   ML_NNI        = "ML (NNI)",
   ML_Stoch      = "ML (Stoch. rearr.)",
   ML_Ratch      = "ML (Ratchet)",
   ML_exhaust    = "ML (exhaustive)",
-  EW_pratchet       = "MP EW (pratchet)",
-  EW_bab            = "MP EW (bab)",
-  EW_enum           = "MP EW (enum)",
-  FBD_MCC   = "FBD (MCC)",
-  FBD_MRC   = "FBD (MRC)"
+  FBD_MCC   = "BI (FBD, rc)",# (MCC)",
+  FBD_MRC   = "BI (FBD, rc)"
   # , FBD   = "BDSky"
 )
 
@@ -234,5 +278,17 @@ plot_metric_boxplots <- function(df, metric, ylab = metric, title = NULL,
   .boxplot_core(long, ylab, title, subtitle)
 }
 
-
+paired_table <- function(df, metric, pairs) {          # pairs: list(c("ML_BS", "NJ_BS"), ...)
+  res <- do.call(rbind, lapply(pairs, function(p) {
+    w <- merge(df[df$method == p[1], c("tradition", metric)],
+               df[df$method == p[2], c("tradition", metric)], by = "tradition")
+    d <- w[[2]] - w[[3]]; d <- d[!is.na(d)]           # negative = first method better (lower distance)
+    ci <- quantile(replicate(5000, median(sample(d, replace = TRUE))), c(.025, .975))
+    data.frame(a = p[1], b = p[2], n = length(d), median_diff = median(d),
+               ci_low = ci[1], ci_high = ci[2],
+               wins_a = sum(d < 0), ties = sum(d == 0), wins_b = sum(d > 0),
+               p = suppressWarnings(wilcox.test(d[d != 0])$p.value))
+  }))
+  res$p_holm <- p.adjust(res$p, "holm"); res
+}
 

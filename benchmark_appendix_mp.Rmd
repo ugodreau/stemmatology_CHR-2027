@@ -1,0 +1,149 @@
+---
+title: 'Additional benchmarks for main methods variants: Maximum Parsimony'
+author: "JB Camps"
+date: "2026-11-06"
+output: html_document
+---
+
+```{r load}
+library("ape")
+library("phangorn")
+library("ggplot2")
+source("utils.R")
+source("evaluate_tree.R")
+mp_fun <- function(x) {
+  mm_start <- NJ(dist.hamming(x))
+  trees = pratchet(x, start = mm_start, minit = 10, maxit = 10000, all = TRUE, trace = 0, method = "fitch", rearrangements = "SPR", perturbation = "ratchet")
+  if (inherits(trees, "multiPhylo")) {
+    trees <- ape::consensus(trees, p = 1)
+  }
+  trees
+}
+```
+
+# Maximum parsimony
+
+
+```{r benchmark_pestimate, echo=FALSE}
+source("mp.R")
+results_mp = NULL
+n = 99
+#n = 10
+pb = txtProgressBar(min = 0, max = n, style = 3)
+for(i in 0:n){
+  setTxtProgressBar(pb, i)
+  attempt <- tryCatch({
+    # Load data and gt tree
+    simu_data = load_simu_data(file = paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), return_dates=FALSE)
+    data = simu_data$data
+    ### Then GT, without forgetting the 0-length edge conversion
+    gt <- convert_gt_internal_nodes(file=paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""))
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
+    return(NULL)
+  })
+  
+  # --- 2. Skip to next iteration if loading failed ---
+  if (is.null(attempt)) {
+    next
+  }
+  # Perform analyses
+  dm <- dist.hamming(data)
+  treeNJ<- NJ(dm)
+  mm_start <- treeNJ
+  # Applying the pratchet method for maximum parsimony
+  ew_pratchet <- pratchet(data, start = mm_start, minit = 10, maxit = 10000, all = TRUE, trace = 0, method = "fitch", rearrangements = "SPR", perturbation = "ratchet")
+  ew_bab = phangorn::bab(data, trace = 0)
+  #ew_enum <- mpt_enumerate(data)
+  #if(!same_tree_sets(ew_enum, ew_bab)){
+  #  warning("Difference observed between bab and enumeration")
+  #}
+  ## And now implied weights
+  data_iw = clean_phydat_attributes(data)
+  rooted_trees <- TreeTools::RootTree(all_topologies(data), 1)
+  sweep <- mpt_sweep(
+    data_iw, 
+    k_grid = c(2, 3, 10, 20), 
+    trees = rooted_trees
+    )
+  ## And BS
+  bs_trees <- bootstrap.phyDat(data, FUN = mp_fun, bs = 100)
+  mm_tree_BS <- ape::consensus(bs_trees, p = 0.5)
+  
+  ## Now score everything
+  preds <- list(
+    EW_pratchet = ape::consensus(ew_pratchet, p=1),
+    EW_bab  = ape::consensus(ew_bab, p=1),
+    #EW_enum = ape::consensus(ew_enum, p=1),
+    IW_k2   = ape::consensus(sweep$k2, p=1),
+    IW_k3   = ape::consensus(sweep$k3, p=1),
+    #IW_k5   = ape::consensus(sweep$k5, p=1),
+    IW_k10  = ape::consensus(sweep$k10, p=1),
+    IW_k20  = ape::consensus(sweep$k20, p=1),
+    #IW_inf  = ape::consensus(sweep$kInf, p=1)
+    MP_BS   = mm_tree_BS
+  )
+  # And now results
+  results_mp <- rbind(results_mp, score_methods(preds, gt, tradition = i))
+}
+write.csv("results_mp.csv", results_mp)
+```
+
+```{r}
+default_methods <- c(
+  MP_SC     = "MP EW",
+  MP_IW_SC  = "MP (IW, SC)",
+  EW_pratchet       = "EW (pratchet)",
+  EW_bab            = "EW (bab)",
+  EW_enum           = "EW (enum)",
+  IW_k2   = "IW (k=2)",
+  IW_k3   = "IW (k=3)",
+  IW_k10  = "IW (k=10)",
+  IW_k20  = "IW (k=20)",
+  MP_BS   = "EW (pratchet) BS-50%MRC"
+)
+```
+
+
+
+```{r plotQuartet_pestimate}
+plot_metric_boxplots(results_mp, "quartet_div", ylab = "quartet  divergence", title = "Unrooted point estimate trees quartet divergence to GT", subtitle = "(families)", methods = default_methods)
+```
+
+```{r plotGRF_pestimate}
+plot_metric_boxplots(results_mp, "cid", ylab = "gRF  dissimilarity", title = "Unrooted point estimate trees gRF distance to GT", subtitle = "(Topology)", methods = default_methods)
+```
+
+```{r}
+custom_names = c(
+  EW_pratchet    = "EW pratchet",
+  EW_bab     = "EW bab",
+  IW_k2       = "IW k=2",
+  IW_k3       = "IW k=3",
+  IW_k10      = "IW k=10",
+  IW_k20      = "IW k=20"
+  )
+library("patchwork")
+pA = plot_metric_boxplots(results_mp, "quartet_div", ylab = "quartet  divergence", methods = custom_names)
+pB = plot_metric_boxplots(results_mp, "cid", ylab = "gRF  dissimilarity", methods = custom_names)
+
+fig <- wrap_plots(
+  pA, pB,
+  ncol = 2,
+  nrow = 1
+) +
+  plot_layout(ncol = 2, nrow = 1) +
+  plot_annotation(tag_levels = "A") &
+  theme(
+    text = element_text(size = 12),          # Scales all text (axes, legends, titles)
+    axis.title = element_text(size = 12),    # Axis labels
+    axis.text = element_text(size = 11),     # Tick labels
+    plot.tag = element_text(size = 16, face = "bold") # A-F tags
+  ) & coord_cartesian(ylim = c(0, 0.85))
+fig
+ggsave("MP_benchmark.png", fig, width = 12, height = 6, dpi = 300) 
+
+```
+
+

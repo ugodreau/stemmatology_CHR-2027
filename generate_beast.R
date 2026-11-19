@@ -14,6 +14,13 @@ set_param <- function(doc, id, value) {
   xml_text(node) <- as.character(value)
 }
 
+set_gamma <- function(doc, prior_id, alpha, beta) {
+  for (nm in c("alpha", "beta")) {
+    node <- get_node(doc, sprintf("//prior[@id='%s']/Gamma/parameter[@name='%s']", prior_id, nm))
+    xml_text(node) <- as.character(if (nm == "alpha") alpha else beta)
+  }
+}
+
 generate_xml_from_template <- function(phy_data, 
                                        dates_vector,
                                        nj_init = TRUE,
@@ -115,6 +122,10 @@ generate_xml_from_template <- function(phy_data,
   set_param(doc, "turnoverFBD.t:dummyname",               0.45)   # mu / lambda
   set_param(doc, "samplingProportionFBD.t:dummyname",     0.05)
   set_param(doc, "originFBD.t:dummyname",                 max_age + 50)
+
+  # 10.b adapt the priors for the clock rates, which are really large
+  #set_gamma(doc, "ucldStdevPrior.c:dummyname", 2, 1)
+  #set_param(doc, "ucldStdev.c:dummyname", 1.0)
   
   # 11. Write Executable XML
   write_xml(doc, output_xml_path)
@@ -152,6 +163,17 @@ bi_diagnostics <- function(i, burnin = 0.1, d_k) {
     ess_post   = coda::effectiveSize(lg$posterior),
     ess_lik    = coda::effectiveSize(lg$likelihood),
     ess_height = coda::effectiveSize(lg$Tree.height),
+    ess_treelik = coda::effectiveSize(lg$treeLikelihood),
+    ess_ucldStdev = coda::effectiveSize(lg$ucldStdev),
+    ess_ratemean = coda::effectiveSize(lg$rate.mean),
+    ess_ratevariance = coda::effectiveSize(lg$rate.variance),
+    ess_coefficientOfVariation = coda::effectiveSize(lg$rate.coefficientOfVariation),
+    ess_ucldMean = coda::effectiveSize(lg$ucldMean),
+    ess_FBD = coda::effectiveSize(lg$FBD),
+    ess_diversificationRateFBD = coda::effectiveSize(lg$diversificationRateFBD),
+    ess_turnoverFBD = coda::effectiveSize(lg$turnoverFBD),
+    ess_samplingProportionFBD = coda::effectiveSize(lg$samplingProportionFBD),
+    ess_originFBD = coda::effectiveSize(lg$originFBD),
     sa_count   = mean(lg$SACountFBD),
     ml_diff    = ml_ll - mean_lik,
     topology_cost  = ml_ll - L_topo,

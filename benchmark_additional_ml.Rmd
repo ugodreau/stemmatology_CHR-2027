@@ -1,0 +1,154 @@
+---
+title: "Additional benchmarks for main methods variants: Maximum Likelihood"
+author: "JB Camps"
+date: "2026-11-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load}
+library("ape")
+library("phangorn")
+source("utils.R")
+library(ggplot2)
+source("evaluate_tree.R")
+```
+
+# Maximum likelihood 
+
+Testing different search algorithms (NNI, Stochastic, Ratchet) and exhaustive search or bootstrapping.
+
+
+```{r benchmark_pestimate, echo=FALSE}
+source("ml.R")
+results_ml = NULL
+n = 99
+#n = 5
+pb = txtProgressBar(min = 0, max = n, style = 3)
+for(i in 0:n){
+  setTxtProgressBar(pb, i)
+  attempt <- tryCatch({
+    # Load data and gt tree
+    simu_data = load_simu_data(file = paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), return_dates=FALSE)
+    data = simu_data$data
+    ### Then GT, without forgetting the 0-length edge conversion
+    gt <- convert_gt_internal_nodes(file=paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""))
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
+    return(NULL)
+  })
+  
+  # --- 2. Skip to next iteration if loading failed ---
+  if (is.null(attempt)) {
+    next
+  }
+  # Perform analyses
+  dm <- dist.hamming(data)
+  mm_start <- NJ(dm)
+  ## Maximum likelihood PE with NNI
+  fit_mk <- pml(mm_start, data = data)
+  fit_opt <- optim.pml(
+    fit_mk, 
+    optNni = TRUE,      # Optimize topology via NNI
+    optEdge = TRUE,     # Optimize branch lengths
+    #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+    control = pml.control(trace = 0)
+  )
+  ## 1.2 Maximum likelihood with stochastic rearrangement (no BS)
+  ## -> actually improves
+  fit_mk <- pml(mm_start, data = data)
+  fit_opt_stoch <- optim.pml(
+    fit_mk, 
+    rearrangement = "stochastic", # Replaces deterministic optNni = TRUE
+    optEdge = TRUE,     # Optimize branch lengths
+    #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+    control = pml.control(trace = 0)
+  )
+  
+  ## 1.3 Maximum likelihood with Ratchet (no BS)
+  fit_opt_ratch <- NULL # Initialize globally so Step 2.3 doesn't crash if 1.3 fails
+  
+  attempt <- tryCatch({
+    fit_mk <- pml(mm_start, data = data)
+    fit_opt_ratch <- optim.pml(
+      fit_mk, 
+      rearrangement = "ratchet", 
+      optEdge = TRUE,     # Optimize branch lengths
+      #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
+      control = pml.control(
+        trace = 0,
+        tau = 1e-6 # FIXED: Active to prevent zero-length edge collapse
+      )
+    )
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Error in ML Ratchet optimization due to error: %s", e$message))
+  })
+  ## 1.4 Exhaustive search
+  ml_ex <- exhaustive_ml(data, ncores = 4, screen_k = 300, extra_trees = list(fit_opt$tree))
+  ## 2.1 Bootstrap NNI
+  bs_trees_nni <- bootstrap.pml(
+    fit_opt, 
+    bs = 100, 
+    multicore = TRUE,
+    optNni = TRUE
+  )
+  fit_opt_NNIBS = ape::consensus(bs_trees_nni, p = 0.5)
+
+  ## Now score everything
+  preds <- list(ML_NNI        = fit_opt$tree,
+                ML_Stoch      = fit_opt_stoch$tree,
+                ML_Ratch      = fit_opt_ratch$tree,
+                ML_exhaust    = if (ml_ex$n_tied > 1) ape::consensus(ml_ex$tied_trees, p = 1) else ml_ex$best_tree,
+                ML_BS       = fit_opt_NNIBS
+  )
+  # And now results
+  results_ml <- rbind(results_ml, score_methods(preds, gt, tradition = i))
+  
+  # save objects to disk
+  #write.tree(fit_opt$tree, file=paste("ml_out/", i, ".tree", sep=""))
+}
+write.csv(file="results_ml.csv", results_ml)
+```
+
+```{r}
+plot_metric_boxplots(results_ml, "cid", ylab = "gRF  dissimilarity", title = "Unrooted PE trees gRF distance to GT", methods = default_methods)
+```
+
+
+```{r}
+custom_names = c(
+  ML_NNI    = "NNI",
+  ML_Stoch  = "Stoch. rear.",
+  ML_Ratch  = "Ratchet",
+  ML_exhaust = "exhaustive",
+  ML_BS      = "BS MRC"
+  )
+library("patchwork")
+pA = plot_metric_boxplots(results_ml, "quartet_div", ylab = "quartet  divergence", methods = custom_names)
+pB = plot_metric_boxplots(results_ml, "cid", ylab = "gRF  dissimilarity", methods = custom_names)
+
+fig <- wrap_plots(
+  pA, pB,
+  ncol = 2,
+  nrow = 1
+) +
+  plot_layout(ncol = 2, nrow = 1) +
+  plot_annotation(tag_levels = "A") &
+  theme(
+    text = element_text(size = 12),          # Scales all text (axes, legends, titles)
+    axis.title = element_text(size = 12),    # Axis labels
+    axis.text = element_text(size = 11),     # Tick labels
+    plot.tag = element_text(size = 16, face = "bold") # A-F tags
+  ) & coord_cartesian(ylim = c(0, 0.85))
+fig
+ggsave("ML_benchmark.png", fig, width = 12, height = 6, dpi = 300) 
+
+```
+
+
+

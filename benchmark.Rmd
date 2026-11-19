@@ -12,45 +12,34 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r load}
 ## Put your beast2 bin path here
 beast_bin_folder = "/home/jbcamps/Data/F/Stemmatologie/bayesian/beast/bin/"
-
 library("ape")
 library("phangorn")
-source("convert_gt_internal_to_zero.R")
+library("ggplot2")
 source("fbd.R")
-#source("generate_beast.R")
-library(ggplot2)
 source("evaluate_tree.R")
+source("mp.R")
+source("utils.R")
 ```
 
 
 # Benchmark point estimates
 
 ```{r benchmark_pestimate, echo=FALSE}
+source("fbd.R")
 results = NULL
 n = 99
 #n = 5
+use_stored_bi = TRUE # Set to false to regenerate BI
 pb = txtProgressBar(min = 0, max = n, style = 3)
 for(i in 0:n){
+  setTxtProgressBar(pb, i)
   attempt <- tryCatch({
     # Load data and gt tree
-    ## load, clean, write, read each nexus file
-    ### Data first
-    raw <- readLines(paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), warn = FALSE)
-    # create the dates vector for bayesian methods
-    matches <- regmatches(raw, regexec("ms_([0-9]+)\\|([0-9]+)", raw))
-    matched_matrix <- do.call(rbind, lapply(matches, function(x) if(length(x) == 3) x[2:3] else NULL))
-    # Create a lookup vector: c("305" = 246, "108" = 120, ...)
-    dates_vector <- setNames(as.numeric(matched_matrix[,2]), matched_matrix[,1])
-    # and now clean the names to avoid issues with nexus reading
-    clean_raw <- gsub("ms\\_|[|]\\S*", "", raw)
-    tmp <- tempfile(fileext = ".nex")
-    writeLines(clean_raw, tmp)
-    data <- ape::read.nexus.data(tmp)
-    unlink(tmp)
-    data = phyDat(data, type = "USER", levels = 0:10, ambiguity=NA)
+    simu_data = load_simu_data(file = paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), return_dates=TRUE)
+    data = simu_data$data
+    dates_vector = simu_data$dates_vector
     ### Then GT, without forgetting the 0-length edge conversion
-    gt_raw = readLines(con = paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""), warn = FALSE)
-    gt <- convert_gt_internal_nodes(gt_raw)
+    gt <- convert_gt_internal_nodes(file=paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""))
   }, error = function(e) {
     # Print a warning showing which file failed
     message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
@@ -69,16 +58,27 @@ for(i in 0:n){
   # Applying the pratchet method for maximum parsimony
   # Default, fitch + SPR
   mm_tree <- pratchet(data, start = mm_start, minit = 10, maxit = 10000, all = TRUE, trace = 0, method = "fitch", rearrangements = "SPR", perturbation = "ratchet")
+  # Doing MP with implied weights and concavity=3 on all enumerated trees
+  data_iw = clean_phydat_attributes(data)
+  iw_trees = iw_enumerate(
+    data_iw, 
+    3, 
+    trees = TreeTools::RootTree(all_topologies(data_iw), 1))
+  
   ## Maximum likelihood
   fit_mk <- pml(treeNJ, data = data)
-  fit_opt <- optim.pml(
+  fit_opt_stoch <- optim.pml(
     fit_mk, 
-    optNni = TRUE,      # Optimize topology via NNI
+    rearrangement = "stochastic", # Replaces deterministic optNni = TRUE
     optEdge = TRUE,     # Optimize branch lengths
-    #optGamma = TRUE,    # Fit +G (Gamma rate variation across site variants)
     control = pml.control(trace = 0)
   )
-  # And now bayesian FBD-based analysis
+  
+  if(use_stored_bi){
+    BI_mcc = ape::read.tree(file = paste("rbeast_out/mcc_", i, ".tree",  sep=""))
+    BI = NULL
+  } else {
+    # And now bayesian FBD-based analysis
   BI = fbd(data,
            dates_vector,
            nj_init = FALSE,
@@ -90,14 +90,17 @@ for(i in 0:n){
              paste("rbeast_out/", "sequences_", i, sep=""),
            chain_length=10000000, 
            bin_folder = beast_bin_folder)
+  BI_mcc = BI$mcc_tree
+  }
   
   ## Now score everything
   preds <- list(NJ       = treeNJ,
                 UNJ      = treeUNJ,
                 MP_SC    = ape::consensus(mm_tree, p = 1),
+                IW_k3   = ape::consensus(iw_trees, p=1),
                 #MP_mean     = mm_tree,
-                ML        = fit_opt$tree,
-                FBD_MCC   = BI$mcc_tree#,
+                ML        = fit_opt_stoch$tree,
+                FBD_MCC   = BI_mcc##,
                 #FBD_MRC   = BI$mrc_tree
   )
   # And now results
@@ -109,9 +112,10 @@ for(i in 0:n){
     write.tree(BI$mcc_tree, file=paste("rbeast_out/mcc_", i, ".tree", sep=""))
   }
   # save objects to disk
-  write.tree(fit_opt$tree, file=paste("ml_out/", i, ".tree", sep=""))
+  write.tree(fit_opt_stoch$tree, file=paste("ml_out/", i, ".tree", sep=""))
   
 }
+write.csv(results, "results.csv")
 ```
 
 
@@ -166,26 +170,13 @@ n = 99
 #n = 5
 pb = txtProgressBar(min = 0, max = n, style = 3)
 for(i in 0:n){
+  setTxtProgressBar(pb, i)
   attempt <- tryCatch({
-    # Load data and gt tree
-    ## load, clean, write, read each nexus file
-    ### Data first
-    raw <- readLines(paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), warn = FALSE)
-    # create the dates vector for bayesian methods
-    matches <- regmatches(raw, regexec("ms_([0-9]+)\\|([0-9]+)", raw))
-    matched_matrix <- do.call(rbind, lapply(matches, function(x) if(length(x) == 3) x[2:3] else NULL))
-    # Create a lookup vector: c("305" = 246, "108" = 120, ...)
-    dates_vector <- setNames(as.numeric(matched_matrix[,2]), matched_matrix[,1])
-    # and now clean the names to avoid issues with nexus reading
-    clean_raw <- gsub("ms\\_|[|]\\S*", "", raw)
-    tmp <- tempfile(fileext = ".nex")
-    writeLines(clean_raw, tmp)
-    data <- ape::read.nexus.data(tmp)
-    unlink(tmp)
-    data = phyDat(data, type = "USER", levels = 0:10, ambiguity=NA)
+    simu_data = load_simu_data(file = paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), return_dates=TRUE)
+    data = simu_data$data
+    dates_vector = simu_data$dates_vector
     ### Then GT, without forgetting the 0-length edge conversion
-    gt_raw = readLines(con = paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""), warn = FALSE)
-    gt <- convert_gt_internal_nodes(gt_raw)
+    gt <- convert_gt_internal_nodes(paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""))
   }, error = function(e) {
     # Print a warning showing which file failed
     message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
@@ -234,6 +225,7 @@ for(i in 0:n){
   )
   results_bs <- rbind(results_bs, score_methods(preds, gt, tradition = i))
 }
+write.csv(results_bs, "results_bs.csv")
 ```
 
 ## Distance plots
@@ -259,7 +251,74 @@ summarise_methods(results_bs)
 plot_accuracy_resolution(results_bs)
 ```
 
+# Significativity tests
+
+```{r}
+paired_table(results, 
+             "cid",
+             pairs = list(
+               c("MP_SC", "IW_k3"),
+               c("MP_SC", "ML"),
+               c("MP_SC", "FBD_MCC"),
+               c("IW_k3", "ML"),
+               c("IW_k3", "FBD_MCC"),
+               c("ML", "FBD_MCC")
+               )
+             )
+```
+
+```{r}
+paired_table(results_bs, 
+             "cid",
+             pairs = list(
+               c("MP_BS", "ML_BS"),
+               c("MP_BS", "FBD_MRC"),
+               c("ML_BS", "FBD_MRC"))
+             )
+```
+
+```{r}
+paired_table(rbind(results, results_bs), 
+             "cid",
+             pairs = list(
+               c("NJ", "NJ_BS"),
+               c("UNJ", "UNJ_BS"),
+               c("MP_SC", "MP_BS"),
+               c("ML", "ML_BS"),
+               c("FBD_MCC", "FBD_MRC")
+               )
+             )
+```
 
 
+# Final figure
+
+```{r finalFig}
+library("patchwork")
+pA = plot_metric_boxplots(results, "quartet_div", ylab = "quartet  divergence", title = "", methods = default_methods)
+pB = plot_metric_boxplots(results_bs, "quartet_div", ylab = "quartet  divergence", title = "", methods = default_methods)
+pC = plot_metric_boxplots(results, "cid", ylab = "igRF  dissimilarity", title = "", methods = default_methods)
+pD = plot_metric_boxplots(results_bs, "cid", ylab = "igRF  dissimilarity", title = "", methods = default_methods)
+pE = plot_accuracy_resolution(results)
+pF = plot_accuracy_resolution(results_bs)
+figure_6panel <- wrap_plots(
+  pA, pB,
+  pC, pD,
+  pE, pF,
+  ncol = 2,
+  nrow = 3
+) +
+  plot_layout(ncol = 2, nrow = 3) +
+  plot_layout(heights = c(1, 1, 1.5)) +
+  plot_annotation(tag_levels = "A") &
+  theme(
+    text = element_text(size = 13),          # Scales all text (axes, legends, titles)
+    axis.title = element_text(size = 13),    # Axis labels
+    axis.text = element_text(size = 12),     # Tick labels
+    plot.tag = element_text(size = 16, face = "bold") # A-F tags
+  )
+figure_6panel
+ggsave("six_panel_figure.png", figure_6panel, width = 12, height = 12, dpi = 300) 
+```
 
 

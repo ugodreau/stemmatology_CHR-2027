@@ -35,7 +35,10 @@ for(i in 0:n){
     simu_data = load_simu_data(file = paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), return_dates=FALSE)
     data = simu_data$data
     ### Then GT, without forgetting the 0-length edge conversion
-    gt <- convert_gt_internal_nodes(file=paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""))
+    gt <- convert_gt_internal_nodes(
+      file=paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""),
+      attach = "star"
+      )
   }, error = function(e) {
     # Print a warning showing which file failed
     message(sprintf("Skipping iteration %d due to error: %s", i, e$message))

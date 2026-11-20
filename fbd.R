@@ -46,7 +46,15 @@ fbd <- function(data,
   
   # Parse & Process Posterior Trees
   tree_file <- paste(out, "-dummyname.trees", sep="")
+  
+  BI = return_bi_trees(tree_file, bin_folder)
+  
+  return(BI)
+}
+
+return_bi_trees <- function(tree_file, bin_folder, out="temp.txt", strip_prefix = "ms_"){
   trees <- ape::read.nexus(tree_file)
+  
   # Remove 10% burn-in manually
   n_trees <- length(trees)
   burnin_cutoff <- floor(0.1 * n_trees)
@@ -58,15 +66,20 @@ fbd <- function(data,
   treeannotator_bin <- paste(bin_folder, "treeannotator", sep="")
   system2(command = treeannotator_bin, 
           args = c("-burnin 10 -height median", tree_file, "mcc_tree.tree"),
-          stdout = FALSE)
+          stdout = out, stderr = out)
   # Read the MCC tree with annotations preserved
-  mcc_tree <- read.nexus("mcc_tree.tree")
+  # and clean labels…
+  raw <- readLines("mcc_tree.tree", warn = FALSE)
+  clean_raw <- gsub("ms\\_|[|]\\S*", "", raw)
+  tmp <- tempfile(fileext = ".nex")
+  writeLines(clean_raw, tmp)
+  mcc_tree <- read.nexus(tmp)
+  unlink(tmp)
+  
+  mrc_tree$tip.label = gsub("ms\\_|[|]\\S*", "", mrc_tree$tip.label)
   
   BI = list()
   BI$mcc_tree = mcc_tree
   BI$mrc_tree = mrc_tree
-  
   return(BI)
 }
-
-

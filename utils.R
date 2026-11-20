@@ -13,8 +13,83 @@ clean_phydat_attributes <- function(dataset) {
   }
   return(dataset)
 }
+## Read a ground-truth stemma in Newick with node metadata such as
+##   ms_38[state=False:birth_time=133.07:length=2]
+## and return a tip-labelled tree on the surviving witnesses (state=True).
+##
+## Rules
+##  * Metadata brackets are read for the state flag, then removed.
+##  * The label prefix (default "ms_") is stripped, so tip labels match the alignment ("38", not "ms_38").
+##  * A surviving witness that is an ancestor of other witnesses (internal node with state=True)
+##    is represented by an extra leaf carrying its label:
+##      attach = "star":  the leaf is one more child of its own node  ->  (C1, C2, X)
+##                        (no split is invented between the copies of X; recommended)
+##      attach = "above": the leaf is the sister of the whole descendant bundle -> ((C1, C2), X)
+##                        (what ape::bind.tip(where = node) does: it resolves the polytomy)
+##  * Lost nodes (state=False) that keep a single surviving child are collapsed; lost leaves are dropped.
+## The labels of converted ancestors are stored in attr(tree, "ancestors").
+## Requires: ape.
+convert_gt_internal_nodes <- function(file = "", 
+                                      strip_prefix = "ms_", 
+                                      attach = c("star", "above")) {
+  attach <- match.arg(attach)
+  txt <- paste(readLines(file, warn = FALSE), collapse = "")
+  
+  ## 1. Node states: "label[state=True...]" or "label[state=False...]"
+  m <- regmatches(txt, gregexpr("[0-9A-Za-z_]+\\[state=(?:True|False)[^\\]]*\\]", txt, perl = TRUE))[[1]]
+  if (length(m) == 0) stop("No [state=...] metadata found in ", file)
+  lab   <- gsub(strip_prefix, "", sub("\\[.*$", "", m), fixed = TRUE)
+  state <- setNames(grepl("state=True", m, fixed = TRUE), lab)
+  
+  ## 2. Plain Newick: drop every bracketed metadata block and the label prefix
+  plain <- gsub("\\[[^\\]]*\\]", "", txt, perl = TRUE)
+  plain <- gsub(strip_prefix, "", plain, fixed = TRUE)
+  phy   <- ape::read.tree(text = plain)
+  
+  ## 3. Rebuild the topology from the edge table
+  nt     <- ape::Ntip(phy)
+  kids   <- split(phy$edge[, 2], phy$edge[, 1])
+  labels <- c(phy$tip.label, phy$node.label)
+  anc    <- character(0)
+  
+  rec <- function(n) {
+    me <- labels[n]
+    ch <- kids[[as.character(n)]]
+    if (is.null(ch)) return(if (isFALSE(unname(state[me]))) NULL else me)   # leaf
+    parts <- Filter(Negate(is.null), lapply(ch, rec))
+    if (isTRUE(unname(state[me]))) {                                         # surviving ancestor
+      anc <<- c(anc, me)
+      if (length(parts) == 0) return(me)
+      if (attach == "star") parts <- c(parts, me)
+      else parts <- list(paste0("(", paste(unlist(parts), collapse = ","), ")"), me)
+    }
+    if (length(parts) == 0) return(NULL)
+    if (length(parts) == 1) return(parts[[1]])                               # collapse single-child nodes
+    paste0("(", paste(unlist(parts), collapse = ","), ")")
+  }
+  
+  nwk <- rec(nt + 1)
+  if (is.null(nwk)) stop("No surviving witness in ", file)
+  out <- ape::read.tree(text = paste0(nwk, ";"))
+  
+  ## 4. Sanity check: tips must be exactly the surviving witnesses
+  expected <- names(state)[state]
+  if (!setequal(out$tip.label, expected)) {
+    warning("Tip labels do not match the state=True nodes in ", file)
+  }
+  attr(out, "ancestors") <- unique(anc)
+  out
+}
 
-convert_gt_internal_nodes <- function(file="") {
+## ---- Example -----------------------------------------------------------------------------------
+## gt <- convert_gt_internal_nodes("simulations_data/.../tree_0.newick")          # star attachment
+## gt_above <- convert_gt_internal_nodes("simulations_data/.../tree_0.newick", attach = "above")
+## phangorn::RF.dist(gt, gt_above)       # 0 if the two conventions give the same topology
+## length(attr(gt, "ancestors"))         # number of surviving witnesses that are ancestors
+## setdiff(gt$tip.label, names(dates_vector))   # should be character(0)
+
+
+convert_gt_internal_nodes_old <- function(file="") {
   # 0. Read file
   newick_str = readLines(con = file, warn = FALSE)
   

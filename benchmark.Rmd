@@ -39,7 +39,10 @@ for(i in 0:n){
     data = simu_data$data
     dates_vector = simu_data$dates_vector
     ### Then GT, without forgetting the 0-length edge conversion
-    gt <- convert_gt_internal_nodes(file=paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""))
+    gt <- convert_gt_internal_nodes(
+      file=paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""),
+      attach = "star"
+      )
   }, error = function(e) {
     # Print a warning showing which file failed
     message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
@@ -176,7 +179,10 @@ for(i in 0:n){
     data = simu_data$data
     dates_vector = simu_data$dates_vector
     ### Then GT, without forgetting the 0-length edge conversion
-    gt <- convert_gt_internal_nodes(paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""))
+    gt <- convert_gt_internal_nodes(
+      paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""),
+      attach = "star"
+      )
   }, error = function(e) {
     # Print a warning showing which file failed
     message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
@@ -294,13 +300,40 @@ paired_table(rbind(results, results_bs),
 # Final figure
 
 ```{r finalFig}
+custom_methods = c(
+  NJ      = "NJ",
+  UNJ     = "UNJ",
+  MP_SC   = "MP-EW",
+  IW_k3   = "MP-IW",
+  ML      = "ML",
+  FBD_MCC = "BI",
+  NJ_BS   = "NJ",
+  UNJ_BS  = "UNJ",
+  MP_BS   = "MP-EW",
+  ML_BS   = "ML",
+  FBD_MRC = "BI"
+)
 library("patchwork")
-pA = plot_metric_boxplots(results, "quartet_div", ylab = "quartet  divergence", title = "", methods = default_methods)
-pB = plot_metric_boxplots(results_bs, "quartet_div", ylab = "quartet  divergence", title = "", methods = default_methods)
-pC = plot_metric_boxplots(results, "cid", ylab = "igRF  dissimilarity", title = "", methods = default_methods)
-pD = plot_metric_boxplots(results_bs, "cid", ylab = "igRF  dissimilarity", title = "", methods = default_methods)
-pE = plot_accuracy_resolution(results)
-pF = plot_accuracy_resolution(results_bs)
+pA = plot_metric_boxplots(results, "quartet_div", 
+                          ylab = "quartet  divergence", 
+                          title = "", 
+                          methods = custom_methods)
+pB = plot_metric_boxplots(results_bs, "quartet_div", 
+                          ylab = "quartet  divergence", 
+                          title = "", 
+                          methods = custom_methods)
+pC = plot_metric_boxplots(results, "cid", 
+                          ylab = "igRF  dissimilarity", 
+                          title = "", 
+                          methods = custom_methods)
+pD = plot_metric_boxplots(results_bs, "cid", 
+                          ylab = "igRF  dissimilarity", 
+                          title = "", 
+                          methods = default_methods)
+pE = plot_accuracy_resolution(results, 
+                              methods = custom_methods)
+pF = plot_accuracy_resolution(results_bs, 
+                              methods = custom_methods)
 figure_6panel <- wrap_plots(
   pA, pB,
   pC, pD,
@@ -312,10 +345,10 @@ figure_6panel <- wrap_plots(
   plot_layout(heights = c(1, 1, 1.5)) +
   plot_annotation(tag_levels = "A") &
   theme(
-    text = element_text(size = 13),          # Scales all text (axes, legends, titles)
-    axis.title = element_text(size = 13),    # Axis labels
-    axis.text = element_text(size = 12),     # Tick labels
-    plot.tag = element_text(size = 16, face = "bold") # A-F tags
+    text = element_text(size = 13),
+    axis.title = element_text(size = 13),
+    axis.text = element_text(size = 12),
+    plot.tag = element_text(size = 16, face = "bold") # A-F
   )
 figure_6panel
 ggsave("six_panel_figure.png", figure_6panel, width = 12, height = 12, dpi = 300) 

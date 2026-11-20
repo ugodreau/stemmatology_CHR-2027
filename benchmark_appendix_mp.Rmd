@@ -37,7 +37,10 @@ for(i in 0:n){
     simu_data = load_simu_data(file = paste("simulations_data/simulated_traditions_22_07/sequences_", i, ".nex", sep = ""), return_dates=FALSE)
     data = simu_data$data
     ### Then GT, without forgetting the 0-length edge conversion
-    gt <- convert_gt_internal_nodes(file=paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""))
+    gt <- convert_gt_internal_nodes(
+      file=paste("simulations_data/simulated_traditions_22_07/tree_", i, ".newick", sep = ""),
+      attach = "star"
+      )
   }, error = function(e) {
     # Print a warning showing which file failed
     message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
@@ -87,7 +90,7 @@ for(i in 0:n){
   # And now results
   results_mp <- rbind(results_mp, score_methods(preds, gt, tradition = i))
 }
-write.csv("results_mp.csv", results_mp)
+write.csv(file="results_mp.csv", results_mp)
 ```
 
 ```{r}
@@ -122,7 +125,8 @@ custom_names = c(
   IW_k2       = "IW k=2",
   IW_k3       = "IW k=3",
   IW_k10      = "IW k=10",
-  IW_k20      = "IW k=20"
+  IW_k20      = "IW k=20",
+  MP_BS       = "EW BS"
   )
 library("patchwork")
 pA = plot_metric_boxplots(results_mp, "quartet_div", ylab = "quartet  divergence", methods = custom_names)

@@ -1,0 +1,91 @@
+---
+title: "Additional benchmarks for BI"
+author: "JB Camps"
+date: "2026-11-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load}
+library("ape")
+library("phangorn")
+library("ggplot2")
+source("utils.R")
+source("evaluate_tree.R")
+beast_bin_folder = "/home/jbcamps/Data/F/Stemmatologie/bayesian/beast/bin/"
+```
+
+# Bayesian inference
+
+Comparing FBD with strict and relaxed clock. 
+
+```{r}
+results_bi = NULL
+n = 199
+#n = 10
+pb = txtProgressBar(min = 0, max = n, style = 3)
+for(i in 0:n){
+  setTxtProgressBar(pb, i)
+  attempt <- tryCatch({
+    gt <- convert_gt_internal_nodes(file=paste("simulations_data/comp_strict_relaxed/tree_", i, ".newick", sep = ""), strip_prefix = "ms_", attach = "star")
+    # SC trees
+    sc_trees = paste("simulations_data/comp_strict_relaxed/fbd_strict_", i, ".trees", sep = "")  
+    rc_trees = paste("simulations_data/comp_strict_relaxed/fbd_lognorm_", i, ".trees", sep = "")
+    SC = return_bi_trees(sc_trees, beast_bin_folder)
+    RC = return_bi_trees(rc_trees, beast_bin_folder)
+  }, error = function(e) {
+    # Print a warning showing which file failed
+    message(sprintf("Skipping iteration %d due to error: %s", i, e$message))
+    return(NULL)
+  })
+  # --- 2. Skip to next iteration if loading failed ---
+  if (is.null(attempt)) {
+    next
+  }
+  preds <- list(SC_MCC      = SC$mcc_tree,
+                SC_MRC      = SC$mrc_tree,
+                RC_MCC      = RC$mcc_tree,
+                RC_MRC      = RC$mrc_tree
+  )
+  results_bi <- rbind(results_bi, score_methods(preds, gt, tradition = i))
+  
+}
+write.csv(file="results_bi.csv", results_bi)
+```
+
+```{r}
+custom_names = c(
+  SC_MCC    = "Strict (MCC)",
+  RC_MCC    = "Relaxed (MCC)",
+  SC_MRC    = "Strict (MRC)",
+  RC_MRC    = "Relaxed (MRC)"
+  )
+library("patchwork")
+pA = plot_metric_boxplots(results_bi, "quartet_div", ylab = "quartet  divergence", methods = custom_names)
+pB = plot_metric_boxplots(results_bi, "cid", ylab = "gRF  dissimilarity", methods = custom_names)
+
+fig <- wrap_plots(
+  pA, pB,
+  ncol = 2,
+  nrow = 1
+) +
+  plot_layout(ncol = 2, nrow = 1) +
+  plot_annotation(tag_levels = "A") &
+  theme(
+    text = element_text(size = 12),          # Scales all text (axes, legends, titles)
+    axis.title = element_text(size = 12),    # Axis labels
+    axis.text = element_text(size = 11),     # Tick labels
+    plot.tag = element_text(size = 16, face = "bold") # A-F tags
+  ) & coord_cartesian(ylim = c(0, 0.85))
+fig
+ggsave("BI_benchmark.png", fig, width = 12, height = 6, dpi = 300) 
+```
+
+
+
+
+
